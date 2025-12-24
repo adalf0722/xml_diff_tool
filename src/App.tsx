@@ -734,6 +734,7 @@ function AppContent() {
                 activeFilters={activeFilters}
                 parseResultA={parseResultA}
                 parseResultB={parseResultB}
+                isLargeFileMode={isLargeFileMode}
                 onNavCountChange={setTreeNavCount}
               />
             )}

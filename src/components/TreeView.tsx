@@ -5,9 +5,9 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Maximize2, Minimize2 } from 'lucide-react';
-import type { ParseResult } from '../core/xml-parser';
+import type { ParseResult, XMLNode } from '../core/xml-parser';
 import type { DiffResult, DiffType } from '../core/xml-diff';
-import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS } from '../core/xml-tree';
+import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS, getChangedPaths } from '../core/xml-tree';
 import type { TreeNode } from '../core/xml-tree';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -20,6 +20,7 @@ interface TreeViewProps {
   activeFilters: Set<DiffType>;
   parseResultA: ParseResult;
   parseResultB: ParseResult;
+  isLargeFileMode?: boolean;
   onNavCountChange?: (count: number) => void;
 }
 
@@ -28,19 +29,43 @@ export function TreeView({
   activeFilters,
   parseResultA,
   parseResultB,
+  isLargeFileMode = false,
   onNavCountChange,
 }: TreeViewProps) {
   const { t } = useLanguage();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [diffOnlyOverride, setDiffOnlyOverride] = useState<boolean | null>(null);
+  const showDiffOnly = diffOnlyOverride ?? isLargeFileMode;
+
+  useEffect(() => {
+    if (!isLargeFileMode) {
+      setDiffOnlyOverride(null);
+    }
+  }, [isLargeFileMode]);
 
   // Parse XML and build paired diff trees (include placeholders)
   const { treeA, treeB } = useMemo(() => {
     // Use paired tree builder to create placeholder nodes
     const rootA = parseResultA.success ? parseResultA.root : null;
     const rootB = parseResultB.success ? parseResultB.root : null;
-    const { treeA, treeB } = buildPairedDiffTrees(rootA, rootB, diffResults);
+    const shouldFilter = showDiffOnly;
+
+    let filteredA = rootA;
+    let filteredB = rootB;
+
+    if (shouldFilter) {
+      const allowedPaths = getChangedPaths(diffResults);
+      if (allowedPaths.size === 0) {
+        if (rootA) allowedPaths.add(rootA.path);
+        if (rootB) allowedPaths.add(rootB.path);
+      }
+      filteredA = rootA ? filterXmlTree(rootA, allowedPaths) : null;
+      filteredB = rootB ? filterXmlTree(rootB, allowedPaths) : null;
+    }
+
+    const { treeA, treeB } = buildPairedDiffTrees(filteredA, filteredB, diffResults);
     return { treeA, treeB };
-  }, [diffResults, parseResultA, parseResultB]);
+  }, [diffResults, parseResultA, parseResultB, showDiffOnly]);
 
   // Build navigable group index map (UX rule):
   // - Only navigate to top-level entities with key attributes (id/key/name/code/uuid)
@@ -198,6 +223,19 @@ export function TreeView({
           <Minimize2 size={14} />
           {t.collapseAll}
         </button>
+        {isLargeFileMode && (
+          <button
+            onClick={() => setDiffOnlyOverride(!showDiffOnly)}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
+          >
+            {showDiffOnly ? t.showFullTree : t.showDiffOnly}
+          </button>
+        )}
+        {isLargeFileMode && showDiffOnly && (
+          <span className="text-xs text-[var(--color-text-muted)]">
+            {t.diffOnlyTreeHint}
+          </span>
+        )}
         <div className="flex-1" />
         <DiffLegend />
       </div>
@@ -246,6 +284,23 @@ export function TreeView({
       </div>
     </div>
   );
+}
+
+function filterXmlTree(node: XMLNode, allowedPaths: Set<string>): XMLNode | null {
+  if (!allowedPaths.has(node.path)) {
+    return null;
+  }
+
+  const filteredChildren: XMLNode[] = [];
+  for (const child of node.children) {
+    const filtered = filterXmlTree(child, allowedPaths);
+    if (filtered) filteredChildren.push(filtered);
+  }
+
+  return {
+    ...node,
+    children: filteredChildren,
+  };
 }
 
 interface TreeNodeComponentProps {

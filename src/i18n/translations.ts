@@ -140,6 +140,9 @@ export interface Translations {
   enableLargeFileMode: string;
   switchingView: string;
   renderingLines: string;
+  showDiffOnly: string;
+  showFullTree: string;
+  diffOnlyTreeHint: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -278,6 +281,9 @@ export const translations: Record<Language, Translations> = {
     enableLargeFileMode: 'Enable large file mode',
     switchingView: 'Switching to {view}...',
     renderingLines: 'Rendering {current}/{total} lines...',
+    showDiffOnly: 'Show diffs only',
+    showFullTree: 'Show full tree',
+    diffOnlyTreeHint: 'Diff-only tree for large files.',
   },
 
   'zh-TW': {
@@ -415,6 +421,9 @@ export const translations: Record<Language, Translations> = {
     enableLargeFileMode: '啟用大型檔案模式',
     switchingView: '正在切換到 {view}...',
     renderingLines: '正在渲染 {current}/{total} 行...',
+    showDiffOnly: '只顯示差異',
+    showFullTree: '顯示完整樹',
+    diffOnlyTreeHint: '大型檔案預設只顯示差異節點。',
   },
 
   'zh-CN': {
@@ -552,6 +561,9 @@ export const translations: Record<Language, Translations> = {
     enableLargeFileMode: '启用大型文件模式',
     switchingView: '正在切换到 {view}...',
     renderingLines: '正在渲染 {current}/{total} 行...',
+    showDiffOnly: '仅显示差异',
+    showFullTree: '显示完整树',
+    diffOnlyTreeHint: '大型文件默认仅显示差异节点。',
   },
 };
 
