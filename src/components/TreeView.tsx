@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Maximize2, Minimize2 } from 'lucide-react';
-import { parseXML } from '../core/xml-parser';
+import type { ParseResult } from '../core/xml-parser';
 import type { DiffResult, DiffType } from '../core/xml-diff';
 import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS } from '../core/xml-tree';
 import type { TreeNode } from '../core/xml-tree';
@@ -16,26 +16,31 @@ import { useLanguage } from '../contexts/LanguageContext';
 const TREE_NAV_KEY_ATTRS = DIFF_KEY_ATTRS.filter(a => a !== 'name');
 
 interface TreeViewProps {
-  xmlA: string;
-  xmlB: string;
   diffResults: DiffResult[];
   activeFilters: Set<DiffType>;
+  parseResultA: ParseResult;
+  parseResultB: ParseResult;
   onNavCountChange?: (count: number) => void;
 }
 
-export function TreeView({ xmlA, xmlB, diffResults, activeFilters, onNavCountChange }: TreeViewProps) {
+export function TreeView({
+  diffResults,
+  activeFilters,
+  parseResultA,
+  parseResultB,
+  onNavCountChange,
+}: TreeViewProps) {
   const { t } = useLanguage();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Parse XML and build paired diff trees (include placeholders)
   const { treeA, treeB } = useMemo(() => {
-    const parsedA = parseXML(xmlA);
-    const parsedB = parseXML(xmlB);
-    
     // Use paired tree builder to create placeholder nodes
-    const { treeA, treeB } = buildPairedDiffTrees(parsedA.root, parsedB.root, diffResults);
+    const rootA = parseResultA.success ? parseResultA.root : null;
+    const rootB = parseResultB.success ? parseResultB.root : null;
+    const { treeA, treeB } = buildPairedDiffTrees(rootA, rootB, diffResults);
     return { treeA, treeB };
-  }, [xmlA, xmlB, diffResults]);
+  }, [diffResults, parseResultA, parseResultB]);
 
   // Build navigable group index map (UX rule):
   // - Only navigate to top-level entities with key attributes (id/key/name/code/uuid)

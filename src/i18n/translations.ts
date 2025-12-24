@@ -138,6 +138,8 @@ export interface Translations {
   largeFileModeDesc: string;
   showFullRendering: string;
   enableLargeFileMode: string;
+  switchingView: string;
+  renderingLines: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -274,6 +276,8 @@ export const translations: Record<Language, Translations> = {
     largeFileModeDesc: 'Reduced rendering to improve performance on large files.',
     showFullRendering: 'Show full rendering',
     enableLargeFileMode: 'Enable large file mode',
+    switchingView: 'Switching to {view}...',
+    renderingLines: 'Rendering {current}/{total} lines...',
   },
 
   'zh-TW': {
@@ -409,6 +413,8 @@ export const translations: Record<Language, Translations> = {
     largeFileModeDesc: '已降低渲染負擔以提升效能。',
     showFullRendering: '顯示完整渲染',
     enableLargeFileMode: '啟用大型檔案模式',
+    switchingView: '正在切換到 {view}...',
+    renderingLines: '正在渲染 {current}/{total} 行...',
   },
 
   'zh-CN': {
@@ -544,6 +550,8 @@ export const translations: Record<Language, Translations> = {
     largeFileModeDesc: '已降低渲染负担以提升性能。',
     showFullRendering: '显示完整渲染',
     enableLargeFileMode: '启用大型文件模式',
+    switchingView: '正在切换到 {view}...',
+    renderingLines: '正在渲染 {current}/{total} 行...',
   },
 };
 

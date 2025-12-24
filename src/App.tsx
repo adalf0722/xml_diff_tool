@@ -88,6 +88,7 @@ function AppContent() {
   const [showFullInputAOverride, setShowFullInputAOverride] = useState<boolean | null>(null);
   const [showFullInputBOverride, setShowFullInputBOverride] = useState<boolean | null>(null);
   const [largeFileModeOverride, setLargeFileModeOverride] = useState<boolean | null>(null);
+  const [viewSwitching, setViewSwitching] = useState(false);
 
   // Filter state - which diff types to show (unchanged is always shown, not a filter)
   const [activeFilters, setActiveFilters] = useState<Set<DiffType>>(
@@ -140,6 +141,11 @@ function AppContent() {
   const showFullInputA = showFullInputAOverride ?? !isLargeInputA;
   const showFullInputB = showFullInputBOverride ?? !isLargeInputB;
   const isLargeFileMode = largeFileModeOverride ?? isLargeFile;
+  const activeViewLabel = useMemo(() => {
+    if (activeView === 'inline') return t.inline;
+    if (activeView === 'tree') return t.treeView;
+    return t.sideBySide;
+  }, [activeView, t]);
 
   // Filter diff results based on active filters
   const filteredDiffResults = useMemo(() => {
@@ -473,6 +479,18 @@ function AppContent() {
   }, [isLargeFile]);
 
   useEffect(() => {
+    if (!isLargeFileMode) {
+      setViewSwitching(false);
+      return;
+    }
+    setViewSwitching(true);
+    const timer = setTimeout(() => {
+      setViewSwitching(false);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [activeView, isLargeFileMode]);
+
+  useEffect(() => {
     if (!isLargeInputA) {
       setShowFullInputAOverride(null);
     }
@@ -676,6 +694,11 @@ function AppContent() {
             />
           </div>
         )}
+        {!showParseError && viewSwitching && (
+          <div className="px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
+            {t.switchingView.replace('{view}', activeViewLabel)}
+          </div>
+        )}
 
         {/* Diff view */}
         {!showParseError && (
@@ -690,6 +713,7 @@ function AppContent() {
                 diffResults={filteredDiffResults}
                 activeFilters={activeFilters}
                 disableSyntaxHighlight={isLargeFileMode}
+                progressiveRender={isLargeFileMode}
               />
             )}
             {activeView === 'inline' && (
@@ -701,14 +725,15 @@ function AppContent() {
                 lineDiff={inlineLineDiff}
                 activeFilters={activeFilters}
                 disableSyntaxHighlight={isLargeFileMode}
+                progressiveRender={isLargeFileMode}
               />
             )}
             {activeView === 'tree' && (
               <TreeView
-                xmlA={displayXmlA}
-                xmlB={displayXmlB}
                 diffResults={diffResults}
                 activeFilters={activeFilters}
+                parseResultA={parseResultA}
+                parseResultB={parseResultB}
                 onNavCountChange={setTreeNavCount}
               />
             )}

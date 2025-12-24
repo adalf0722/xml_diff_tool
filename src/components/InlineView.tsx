@@ -3,10 +3,11 @@
  * Shows unified diff with additions and deletions inline
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { generateLineDiff } from '../core/xml-diff';
 import type { UnifiedDiffLine, DiffType } from '../core/xml-diff';
 import { prettyPrintXML } from '../utils/pretty-print';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface InlineViewProps {
   xmlA: string;
@@ -16,6 +17,9 @@ interface InlineViewProps {
   formattedXmlB?: string;
   lineDiff?: UnifiedDiffLine[];
   disableSyntaxHighlight?: boolean;
+  progressiveRender?: boolean;
+  initialRenderCount?: number;
+  renderBatchSize?: number;
 }
 
 export function InlineView({
@@ -26,7 +30,11 @@ export function InlineView({
   formattedXmlB,
   lineDiff: providedLineDiff,
   disableSyntaxHighlight = false,
+  progressiveRender = false,
+  initialRenderCount = 400,
+  renderBatchSize = 400,
 }: InlineViewProps) {
+  const { t } = useLanguage();
   // Format and generate line diff
   const lineDiff = useMemo(() => {
     if (providedLineDiff) return providedLineDiff;
@@ -50,6 +58,45 @@ export function InlineView({
   }, [lineDiff]);
 
   const lineNumberWidth = String(maxLineNumber).length * 10 + 16;
+
+  const totalLines = lineDiff.length;
+  const [visibleCount, setVisibleCount] = useState(() => {
+    if (!progressiveRender) return totalLines;
+    return Math.min(initialRenderCount, totalLines);
+  });
+  const [isRendering, setIsRendering] = useState(false);
+
+  useEffect(() => {
+    if (!progressiveRender) {
+      setVisibleCount(totalLines);
+      setIsRendering(false);
+      return;
+    }
+
+    let cancelled = false;
+    const initialCount = Math.min(initialRenderCount, totalLines);
+    setVisibleCount(initialCount);
+    setIsRendering(initialCount < totalLines);
+
+    let current = initialCount;
+    const step = () => {
+      if (cancelled) return;
+      current = Math.min(current + renderBatchSize, totalLines);
+      setVisibleCount(current);
+      setIsRendering(current < totalLines);
+      if (current < totalLines) {
+        requestAnimationFrame(step);
+      }
+    };
+
+    if (initialCount < totalLines) {
+      requestAnimationFrame(step);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [progressiveRender, totalLines, initialRenderCount, renderBatchSize]);
 
   // Group consecutive changes for context and assign navigation IDs
   const { groupedLines, diffIndexMap } = useMemo(() => {
@@ -80,10 +127,21 @@ export function InlineView({
     );
   }
 
+  const visibleLines = useMemo(() => {
+    return groupedLines.slice(0, visibleCount);
+  }, [groupedLines, visibleCount]);
+
   return (
-    <div className="h-full overflow-auto font-mono text-sm">
+    <div className="relative h-full overflow-auto font-mono text-sm">
+      {isRendering && totalLines > 0 && (
+        <div className="absolute right-3 top-2 z-10 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-1 text-xs text-[var(--color-text-secondary)] shadow-sm pointer-events-none">
+          {t.renderingLines
+            .replace('{current}', visibleCount.toLocaleString())
+            .replace('{total}', totalLines.toLocaleString())}
+        </div>
+      )}
       <div className="min-w-max">
-        {groupedLines.map((line, index) => {
+        {visibleLines.map((line, index) => {
           const diffIdx = diffIndexMap.get(index);
           return (
             <InlineDiffLine

@@ -4,7 +4,7 @@
  * Uses line-level diff for accurate highlighting
  */
 
-import { useRef, useEffect, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import type { DiffResult, DiffType } from '../core/xml-diff';
 import { prettyPrintXML } from '../utils/pretty-print';
 import { diffLines } from '../utils/line-diff';
@@ -20,6 +20,9 @@ interface SideBySideViewProps {
   diffResults: DiffResult[];
   activeFilters: Set<DiffType>;
   disableSyntaxHighlight?: boolean;
+  progressiveRender?: boolean;
+  initialRenderCount?: number;
+  renderBatchSize?: number;
 }
 
 type LineDiffType = 'added' | 'removed' | 'modified' | 'unchanged';
@@ -37,6 +40,9 @@ export function SideBySideView({
   lineDiffOps,
   activeFilters,
   disableSyntaxHighlight = false,
+  progressiveRender = false,
+  initialRenderCount = 400,
+  renderBatchSize = 400,
 }: SideBySideViewProps) {
   const { t } = useLanguage();
   const leftPanelRef = useRef<HTMLDivElement>(null);
@@ -73,6 +79,49 @@ export function SideBySideView({
     
     return { alignedLines: lines, diffIndexMap: indexMap };
   }, [formattedA, formattedB, lineDiffOps]);
+
+  const totalLines = alignedLines.length;
+  const [visibleCount, setVisibleCount] = useState(() => {
+    if (!progressiveRender) return totalLines;
+    return Math.min(initialRenderCount, totalLines);
+  });
+  const [isRendering, setIsRendering] = useState(false);
+
+  useEffect(() => {
+    if (!progressiveRender) {
+      setVisibleCount(totalLines);
+      setIsRendering(false);
+      return;
+    }
+
+    let cancelled = false;
+    const initialCount = Math.min(initialRenderCount, totalLines);
+    setVisibleCount(initialCount);
+    setIsRendering(initialCount < totalLines);
+
+    let current = initialCount;
+    const step = () => {
+      if (cancelled) return;
+      current = Math.min(current + renderBatchSize, totalLines);
+      setVisibleCount(current);
+      setIsRendering(current < totalLines);
+      if (current < totalLines) {
+        requestAnimationFrame(step);
+      }
+    };
+
+    if (initialCount < totalLines) {
+      requestAnimationFrame(step);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [progressiveRender, totalLines, initialRenderCount, renderBatchSize]);
+
+  const visibleLines = useMemo(() => {
+    return alignedLines.slice(0, visibleCount);
+  }, [alignedLines, visibleCount]);
 
   // Synchronized scrolling
   const handleScroll = useCallback((source: 'left' | 'right') => {
@@ -115,7 +164,15 @@ export function SideBySideView({
   const lineNumberWidth = String(maxLineNumber).length * 10 + 20;
 
   return (
-    <div className="flex h-full divide-x divide-[var(--color-border)]">
+    <div className="relative h-full">
+      {isRendering && totalLines > 0 && (
+        <div className="absolute right-3 top-2 z-10 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-1 text-xs text-[var(--color-text-secondary)] shadow-sm pointer-events-none">
+          {t.renderingLines
+            .replace('{current}', visibleCount.toLocaleString())
+            .replace('{total}', totalLines.toLocaleString())}
+        </div>
+      )}
+      <div className="flex h-full divide-x divide-[var(--color-border)]">
       {/* Left Panel - XML A (Old) */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="px-4 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
@@ -128,7 +185,7 @@ export function SideBySideView({
           className="flex-1 overflow-auto font-mono text-sm"
         >
           <div className="min-w-max">
-            {alignedLines.map((line, index) => {
+            {visibleLines.map((line, index) => {
               const diffIdx = diffIndexMap.get(index);
               return (
                 <DiffLine
@@ -160,7 +217,7 @@ export function SideBySideView({
           className="flex-1 overflow-auto font-mono text-sm"
         >
           <div className="min-w-max">
-            {alignedLines.map((line, index) => {
+            {visibleLines.map((line, index) => {
               const diffIdx = diffIndexMap.get(index);
               return (
                 <DiffLine
@@ -178,6 +235,7 @@ export function SideBySideView({
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
