@@ -1,6 +1,6 @@
 # XML Diff Tool
 
-**English** | [????](README.zh-TW.md) | [????](README.zh-CN.md)
+**English** | [Traditional Chinese](README.zh-TW.md) | [Simplified Chinese](README.zh-CN.md)
 
 A pure frontend XML comparison tool that visually presents differences between two XML documents. All processing happens locally in the browser.
 
