@@ -143,6 +143,10 @@ export interface Translations {
   showDiffOnly: string;
   showFullTree: string;
   diffOnlyTreeHint: string;
+  treeExpandStateCollapsed: string;
+  treeExpandStateExpanded: string;
+  treeExpandStatePartial: string;
+  treeExpandStateLabel: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -284,6 +288,10 @@ export const translations: Record<Language, Translations> = {
     showDiffOnly: 'Show diffs only',
     showFullTree: 'Show full tree',
     diffOnlyTreeHint: 'Diff-only tree for large files.',
+    treeExpandStateCollapsed: 'Collapsed',
+    treeExpandStateExpanded: 'Expanded',
+    treeExpandStatePartial: 'Partial',
+    treeExpandStateLabel: 'Tree state: {state}',
   },
 
   'zh-TW': {
@@ -424,6 +432,10 @@ export const translations: Record<Language, Translations> = {
     showDiffOnly: '只顯示差異',
     showFullTree: '顯示完整樹',
     diffOnlyTreeHint: '大型檔案預設只顯示差異節點。',
+    treeExpandStateCollapsed: '已收合',
+    treeExpandStateExpanded: '已展開',
+    treeExpandStatePartial: '部分展開',
+    treeExpandStateLabel: '樹狀狀態：{state}',
   },
 
   'zh-CN': {
@@ -564,6 +576,10 @@ export const translations: Record<Language, Translations> = {
     showDiffOnly: '仅显示差异',
     showFullTree: '显示完整树',
     diffOnlyTreeHint: '大型文件默认仅显示差异节点。',
+    treeExpandStateCollapsed: '已收合',
+    treeExpandStateExpanded: '已展开',
+    treeExpandStatePartial: '部分展开',
+    treeExpandStateLabel: '树状状态：{state}',
   },
 };
 

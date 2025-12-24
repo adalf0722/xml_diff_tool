@@ -3,7 +3,7 @@
  * Shows XML structure as collapsible tree with diff highlighting
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Maximize2, Minimize2 } from 'lucide-react';
 import type { ParseResult, XMLNode } from '../core/xml-parser';
 import type { DiffResult, DiffType } from '../core/xml-diff';
@@ -21,6 +21,7 @@ interface TreeViewProps {
   parseResultA: ParseResult;
   parseResultB: ParseResult;
   isLargeFileMode?: boolean;
+  activeDiffIndex?: number;
   onNavCountChange?: (count: number) => void;
 }
 
@@ -30,12 +31,15 @@ export function TreeView({
   parseResultA,
   parseResultB,
   isLargeFileMode = false,
+  activeDiffIndex,
   onNavCountChange,
 }: TreeViewProps) {
   const { t } = useLanguage();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [diffOnlyOverride, setDiffOnlyOverride] = useState<boolean | null>(null);
   const showDiffOnly = diffOnlyOverride ?? isLargeFileMode;
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isLargeFileMode) {
@@ -67,12 +71,14 @@ export function TreeView({
     return { treeA, treeB };
   }, [diffResults, parseResultA, parseResultB, showDiffOnly]);
 
-  // Build navigable group index map (UX rule):
-  // - Only navigate to top-level entities with key attributes (id/key/name/code/uuid)
-  // - Order follows left tree preorder traversal (including placeholders)
-  const diffIndexMap = useMemo(() => {
+  // Build navigable index map:
+  // - Prefer grouping by key attributes
+  // - Fallback to any diff node when no group roots exist
+  const { diffIndexMap, indexToKey, navMode } = useMemo(() => {
     const indexMap = new Map<string, number>();
+    const reverseMap = new Map<number, string>();
     let diffIdx = 0;
+    let hasGroupRoots = false;
 
     function hasKeyAttr(n: TreeNode): boolean {
       if (n.node.nodeType !== 'element') return false;
@@ -90,7 +96,9 @@ export function TreeView({
       if (hasKeyAttr(n) && subtreeHasActiveDiff(n)) {
         if (!indexMap.has(n.stableKey)) {
           indexMap.set(n.stableKey, diffIdx);
+          reverseMap.set(diffIdx, n.stableKey);
           diffIdx++;
+          hasGroupRoots = true;
         }
         // Do NOT traverse into children for additional groups; keeps UX as “entity-level”
         return;
@@ -99,23 +107,101 @@ export function TreeView({
     }
 
     traverseLeft(treeA);
-    return indexMap;
+
+    if (hasGroupRoots) {
+      return { diffIndexMap: indexMap, indexToKey: reverseMap, navMode: 'group' as const };
+    }
+
+    const fallbackIndexMap = new Map<string, number>();
+    const fallbackReverseMap = new Map<number, string>();
+    diffIdx = 0;
+
+    function traverseAll(n: TreeNode | null) {
+      if (!n) return;
+      if (n.diffType !== 'unchanged' && activeFilters.has(n.diffType)) {
+        if (!fallbackIndexMap.has(n.stableKey)) {
+          fallbackIndexMap.set(n.stableKey, diffIdx);
+          fallbackReverseMap.set(diffIdx, n.stableKey);
+          diffIdx++;
+        }
+      }
+      for (const child of n.children) traverseAll(child);
+    }
+
+    traverseAll(treeA);
+    return { diffIndexMap: fallbackIndexMap, indexToKey: fallbackReverseMap, navMode: 'node' as const };
   }, [treeA, activeFilters]);
+
+  const keyPathMapA = useMemo(() => buildKeyPathMap(treeA), [treeA]);
+  const keyPathMapB = useMemo(() => buildKeyPathMap(treeB), [treeB]);
+
+  useEffect(() => {
+    if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
+    const key = indexToKey.get(activeDiffIndex);
+    if (!key) return;
+
+    setExpandedNodes(prev => {
+      const next = new Set(prev);
+      let changed = false;
+      const pathA = keyPathMapA.get(key);
+      const pathB = keyPathMapB.get(key);
+
+      if (pathA) {
+        for (const id of pathA) {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        }
+      }
+
+      if (pathB) {
+        for (const id of pathB) {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        }
+      }
+
+      return changed ? next : prev;
+    });
+
+    const selector = `[data-diff-id="diff-${activeDiffIndex}"]`;
+    const timer = setTimeout(() => {
+      requestAnimationFrame(() => {
+        const targets = [
+          leftPanelRef.current?.querySelector(selector),
+          rightPanelRef.current?.querySelector(selector),
+        ].filter(Boolean) as HTMLElement[];
+
+        targets.forEach(element => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('diff-highlight-pulse');
+          setTimeout(() => {
+            element.classList.remove('diff-highlight-pulse');
+          }, 1000);
+        });
+      });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [activeDiffIndex, indexToKey, keyPathMapA, keyPathMapB]);
 
   // Report navigable count to App (for correct counter + bounds)
   useEffect(() => {
     onNavCountChange?.(diffIndexMap.size);
   }, [diffIndexMap.size, onNavCountChange]);
 
-  // Initialize expanded state
+  // Initialize expanded state (default collapsed, only roots open)
   useMemo(() => {
-    if (expandedNodes.size === 0 && (treeA || treeB)) {
+    if (treeA || treeB) {
       const initial = new Set<string>();
       if (treeA) initial.add(treeA.id);
       if (treeB) initial.add(treeB.id);
       setExpandedNodes(initial);
     }
-  }, [treeA, treeB, expandedNodes.size]);
+  }, [treeA, treeB]);
 
   const handleToggle = useCallback((nodeId: string) => {
     setExpandedNodes(prev => {
@@ -186,6 +272,11 @@ export function TreeView({
       isFullyCollapsed: nonRootExpanded === 0,
     };
   }, [treeA, treeB, expandedNodes]);
+  const expandStateLabel = useMemo(() => {
+    if (isFullyExpanded) return t.treeExpandStateExpanded;
+    if (isFullyCollapsed) return t.treeExpandStateCollapsed;
+    return t.treeExpandStatePartial;
+  }, [isFullyCollapsed, isFullyExpanded, t]);
 
   if (!treeA && !treeB) {
     return (
@@ -236,6 +327,9 @@ export function TreeView({
             {t.diffOnlyTreeHint}
           </span>
         )}
+        <span className="text-xs text-[var(--color-text-muted)]">
+          {t.treeExpandStateLabel.replace('{state}', expandStateLabel)}
+        </span>
         <div className="flex-1" />
         <DiffLegend />
       </div>
@@ -249,7 +343,7 @@ export function TreeView({
               {t.originalXml}
             </h4>
           </div>
-          <div className="flex-1 overflow-auto p-2">
+          <div className="flex-1 overflow-auto p-2" ref={leftPanelRef}>
             {treeA && (
               <TreeNodeComponent
                 node={treeA}
@@ -257,6 +351,7 @@ export function TreeView({
                 onToggle={handleToggle}
                 activeFilters={activeFilters}
                 diffIndexMap={diffIndexMap}
+                navMode={navMode}
               />
             )}
           </div>
@@ -269,7 +364,7 @@ export function TreeView({
               {t.newXml}
             </h4>
           </div>
-          <div className="flex-1 overflow-auto p-2">
+          <div className="flex-1 overflow-auto p-2" ref={rightPanelRef}>
             {treeB && (
               <TreeNodeComponent
                 node={treeB}
@@ -277,6 +372,7 @@ export function TreeView({
                 onToggle={handleToggle}
                 activeFilters={activeFilters}
                 diffIndexMap={diffIndexMap}
+                navMode={navMode}
               />
             )}
           </div>
@@ -303,12 +399,29 @@ function filterXmlTree(node: XMLNode, allowedPaths: Set<string>): XMLNode | null
   };
 }
 
+function buildKeyPathMap(tree: TreeNode | null): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  if (!tree) return map;
+
+  const traverse = (node: TreeNode, path: string[]) => {
+    const nextPath = [...path, node.id];
+    map.set(node.stableKey, nextPath);
+    for (const child of node.children) {
+      traverse(child, nextPath);
+    }
+  };
+
+  traverse(tree, []);
+  return map;
+}
+
 interface TreeNodeComponentProps {
   node: TreeNode;
   expandedNodes: Set<string>;
   onToggle: (nodeId: string) => void;
   activeFilters: Set<DiffType>;
   diffIndexMap: Map<string, number>;
+  navMode: 'group' | 'node';
   depth?: number;
 }
 
@@ -318,6 +431,7 @@ function TreeNodeComponent({
   onToggle,
   activeFilters,
   diffIndexMap,
+  navMode,
   depth = 0,
 }: TreeNodeComponentProps) {
   const { t } = useLanguage();
@@ -328,9 +442,13 @@ function TreeNodeComponent({
   const shouldHighlight = node.diffType && node.diffType !== 'unchanged' && activeFilters.has(node.diffType);
   const diffClass = shouldHighlight ? getDiffClass(node.diffType) : '';
   
-  // Only group roots have navigation IDs (entity-level navigation)
+  // Navigation IDs based on current nav mode
   const isGroupRoot = TREE_NAV_KEY_ATTRS.some(attr => node.node.attributes[attr] !== undefined);
-  const diffIdx = isGroupRoot ? diffIndexMap.get(node.stableKey) : undefined;
+  const isDiffNode = node.diffType !== 'unchanged' && activeFilters.has(node.diffType);
+  const navKey = navMode === 'group'
+    ? (isGroupRoot ? node.stableKey : null)
+    : (isDiffNode ? node.stableKey : null);
+  const diffIdx = navKey ? diffIndexMap.get(navKey) : undefined;
   const navId = diffIdx !== undefined ? `diff-${diffIdx}` : undefined;
 
   // Render placeholder node with special styling
@@ -446,6 +564,7 @@ function TreeNodeComponent({
               onToggle={onToggle}
               activeFilters={activeFilters}
               diffIndexMap={diffIndexMap}
+              navMode={navMode}
               depth={depth + 1}
             />
           ))}

@@ -735,6 +735,7 @@ function AppContent() {
                 parseResultA={parseResultA}
                 parseResultB={parseResultB}
                 isLargeFileMode={isLargeFileMode}
+                activeDiffIndex={currentDiffIndex}
                 onNavCountChange={setTreeNavCount}
               />
             )}

@@ -166,10 +166,17 @@ export function SideBySideView({
   return (
     <div className="relative h-full">
       {isRendering && totalLines > 0 && (
-        <div className="absolute right-3 top-2 z-10 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-2 py-1 text-xs text-[var(--color-text-secondary)] shadow-sm pointer-events-none">
-          {t.renderingLines
-            .replace('{current}', visibleCount.toLocaleString())
-            .replace('{total}', totalLines.toLocaleString())}
+        <div className="absolute right-3 top-2 z-10 rounded-full border border-[var(--color-diff-modified-border)] bg-[var(--color-diff-modified-bg)] px-3 py-1 text-xs font-semibold text-[var(--color-diff-modified-text)] shadow-sm pointer-events-none flex items-center gap-2">
+          <span className="absolute inset-0 rounded-full bg-[var(--color-diff-modified-bg)] opacity-70 animate-pulse" />
+          <span
+            className="h-2 w-2 rounded-full bg-[var(--color-diff-modified-border)]"
+            style={{ boxShadow: '0 0 8px var(--color-diff-modified-border)' }}
+          />
+          <span className="relative">
+            {t.renderingLines
+              .replace('{current}', visibleCount.toLocaleString())
+              .replace('{total}', totalLines.toLocaleString())}
+          </span>
         </div>
       )}
       <div className="flex h-full divide-x divide-[var(--color-border)]">
