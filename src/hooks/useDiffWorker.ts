@@ -234,8 +234,6 @@ export function useDiffWorker() {
  */
 export type { 
   DiffResultPayload, 
-  LineDiffPayload,
-  InlineLineStats,
   BatchProgress, 
   BatchResultItem, 
   BatchCompletePayload,
