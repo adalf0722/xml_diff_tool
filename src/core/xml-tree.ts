@@ -5,6 +5,7 @@
 
 import type { XMLNode } from './xml-parser';
 import type { DiffResult, DiffType } from './xml-diff';
+import { recordValue } from '../utils/perf-metrics';
 
 // Key attributes used to align nodes across trees (must match xml-diff.ts)
 export const DIFF_KEY_ATTRS = ['id', 'key', 'name', 'code', 'uuid'];
@@ -56,6 +57,16 @@ export function buildPairedDiffTrees(
   // Build two buckets: by key and by path (allow multiple entries for same path)
   const diffByKey: DiffBucket = new Map();
   const diffByPath: DiffBucket = new Map();
+  const now = () =>
+    typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+  const bucketStart = now();
+  const indexStart = now();
+  const indexA = rootA ? buildNodeIndex(rootA) : null;
+  const indexB = rootB ? buildNodeIndex(rootB) : null;
+  recordValue('tree:build:index', now() - indexStart, 'ms', {
+    sizeA: indexA ? indexA.size : 0,
+    sizeB: indexB ? indexB.size : 0,
+  });
 
   function addToBucket(bucket: DiffBucket, k: string, val: DiffResult) {
     if (!bucket.has(k)) bucket.set(k, []);
@@ -67,10 +78,27 @@ export function buildPairedDiffTrees(
     addToBucket(diffByKey, key, result);
     addToBucket(diffByPath, result.path, result);
   }
+  recordValue('tree:build:bucket', now() - bucketStart, 'ms', {
+    diffCount: diffResults.length,
+    keys: diffByKey.size,
+    paths: diffByPath.size,
+  });
 
   // Build initial trees
-  const treeA = rootA ? buildTreeNodeWithPlaceholders(rootA, diffByKey, diffByPath, 'old', 0, rootB) : null;
-  const treeB = rootB ? buildTreeNodeWithPlaceholders(rootB, diffByKey, diffByPath, 'new', 0, rootA) : null;
+  const treeAStart = now();
+  const treeA = rootA
+    ? buildTreeNodeWithPlaceholders(rootA, diffByKey, diffByPath, 'old', 0, rootB, indexB)
+    : null;
+  recordValue('tree:build:treeA', now() - treeAStart, 'ms', {
+    root: rootA ? rootA.name : null,
+  });
+  const treeBStart = now();
+  const treeB = rootB
+    ? buildTreeNodeWithPlaceholders(rootB, diffByKey, diffByPath, 'new', 0, rootA, indexA)
+    : null;
+  recordValue('tree:build:treeB', now() - treeBStart, 'ms', {
+    root: rootB ? rootB.name : null,
+  });
 
   return { treeA, treeB };
 }
@@ -125,7 +153,8 @@ function buildTreeNodeWithPlaceholders(
   diffByPath: DiffBucket,
   side: 'old' | 'new',
   depth: number,
-  otherRoot: XMLNode | null
+  otherRoot: XMLNode | null,
+  otherIndex: Map<string, XMLNode> | null
 ): TreeNode {
   const diffResult = pickBestDiff(node, side, diffByKey, diffByPath);
   const stableKey = getNodeKey(node);
@@ -155,7 +184,11 @@ function buildTreeNodeWithPlaceholders(
 
   // Get corresponding node from the other tree to find missing children
   // Use key-based matching to handle node reordering correctly
-  const otherNode = otherRoot ? findNodeByKey(otherRoot, node) : null;
+  const otherNode = otherIndex
+    ? otherIndex.get(getNodeIndexKey(node)) ?? null
+    : otherRoot
+      ? findNodeByKey(otherRoot, node)
+      : null;
   
   // Build a map of children by their identifying key
   const childMap = new Map<string, XMLNode>();
@@ -191,7 +224,15 @@ function buildTreeNodeWithPlaceholders(
     
     if (myChild) {
       // This side has the child - add it
-      const childTree = buildTreeNodeWithPlaceholders(myChild, diffByKey, diffByPath, side, depth + 1, otherRoot);
+      const childTree = buildTreeNodeWithPlaceholders(
+        myChild,
+        diffByKey,
+        diffByPath,
+        side,
+        depth + 1,
+        otherRoot,
+        otherIndex
+      );
       treeNode.children.push(childTree);
     } else if (otherChild) {
       // Only other side has this child - check if we need a placeholder
@@ -268,6 +309,28 @@ function findNodeByKey(root: XMLNode, targetNode: XMLNode): XMLNode | null {
   }
   
   return search(root);
+}
+
+function getNodeIndexKey(node: XMLNode): string {
+  return `${node.name}|${getNodeKey(node)}`;
+}
+
+function buildNodeIndex(root: XMLNode): Map<string, XMLNode> {
+  const index = new Map<string, XMLNode>();
+  const stack: XMLNode[] = [root];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    const key = getNodeIndexKey(current);
+    if (!index.has(key)) {
+      index.set(key, current);
+    }
+    for (const child of current.children) {
+      stack.push(child);
+    }
+  }
+
+  return index;
 }
 
 /**

@@ -11,6 +11,7 @@ import type { DiffResult, DiffType } from '../core/xml-diff';
 import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS, getChangedPaths, countNodesByType } from '../core/xml-tree';
 import type { TreeNode } from '../core/xml-tree';
 import { useLanguage } from '../contexts/LanguageContext';
+import { recordValue } from '../utils/perf-metrics';
 
 // Tree navigation grouping keys (UX): treat only real “entities” as navigable
 // - exclude `name` to avoid root like <company name="..."> swallowing the whole tree
@@ -47,6 +48,13 @@ const TreeList = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>
 );
 
 TreeList.displayName = 'TreeList';
+
+function perfNow(): number {
+  if (typeof performance !== 'undefined' && performance.now) {
+    return performance.now();
+  }
+  return Date.now();
+}
 
 export function TreeView({
   diffResults,
@@ -90,29 +98,110 @@ export function TreeView({
     let filteredB = rootB;
 
     if (shouldFilter) {
+      const pathsStart = perfNow();
       const allowedPaths = getChangedPaths(diffResults);
+      const pathsDuration = perfNow() - pathsStart;
+      recordValue('tree:changedPaths', pathsDuration, 'ms', {
+        scope: showDiffOnly ? 'diff-only' : 'full',
+        diffCount: diffResults.length,
+        paths: allowedPaths.size,
+      });
       if (allowedPaths.size === 0) {
         if (rootA) allowedPaths.add(rootA.path);
         if (rootB) allowedPaths.add(rootB.path);
       }
+      const filterStartA = perfNow();
       filteredA = rootA ? filterXmlTree(rootA, allowedPaths) : null;
+      recordValue('tree:filter', perfNow() - filterStartA, 'ms', {
+        side: 'A',
+        scope: showDiffOnly ? 'diff-only' : 'full',
+        paths: allowedPaths.size,
+      });
+      const filterStartB = perfNow();
       filteredB = rootB ? filterXmlTree(rootB, allowedPaths) : null;
+      recordValue('tree:filter', perfNow() - filterStartB, 'ms', {
+        side: 'B',
+        scope: showDiffOnly ? 'diff-only' : 'full',
+        paths: allowedPaths.size,
+      });
     }
 
+    const start = perfNow();
     const { treeA, treeB } = buildPairedDiffTrees(filteredA, filteredB, diffResults);
+    const duration = perfNow() - start;
+    if (treeA || treeB) {
+      recordValue('tree:build', duration, 'ms', {
+        scope: showDiffOnly ? 'diff-only' : 'full',
+        diffCount: diffResults.length,
+      });
+    }
     return { treeA, treeB };
   }, [diffResults, parseResultA, parseResultB, showDiffOnly]);
 
   const treeSummary = useMemo(() => {
+    const start = perfNow();
     const counts = countNodesByType(treeA);
     const total = counts.added + counts.removed + counts.modified + counts.unchanged;
+    if (treeA) {
+      recordValue('tree:summary', perfNow() - start, 'ms', {
+        total,
+        added: counts.added,
+        removed: counts.removed,
+        modified: counts.modified,
+      });
+    }
     return { ...counts, total };
   }, [treeA]);
 
-  const flatTreeA = useMemo(() => flattenTree(treeA, expandedNodes), [treeA, expandedNodes]);
-  const flatTreeB = useMemo(() => flattenTree(treeB, expandedNodes), [treeB, expandedNodes]);
-  const keyToIndexA = useMemo(() => buildKeyIndex(flatTreeA), [flatTreeA]);
-  const keyToIndexB = useMemo(() => buildKeyIndex(flatTreeB), [flatTreeB]);
+  const flatTreeA = useMemo(() => {
+    if (!treeA) return [];
+    const start = perfNow();
+    const result = flattenTree(treeA, expandedNodes);
+    const duration = perfNow() - start;
+    recordValue('tree:flatten', duration, 'ms', {
+      side: 'A',
+      nodes: result.length,
+      expanded: expandedNodes.size,
+      scope: showDiffOnly ? 'diff-only' : 'full',
+    });
+    return result;
+  }, [treeA, expandedNodes, showDiffOnly]);
+
+  const flatTreeB = useMemo(() => {
+    if (!treeB) return [];
+    const start = perfNow();
+    const result = flattenTree(treeB, expandedNodes);
+    const duration = perfNow() - start;
+    recordValue('tree:flatten', duration, 'ms', {
+      side: 'B',
+      nodes: result.length,
+      expanded: expandedNodes.size,
+      scope: showDiffOnly ? 'diff-only' : 'full',
+    });
+    return result;
+  }, [treeB, expandedNodes, showDiffOnly]);
+  const keyToIndexA = useMemo(() => {
+    const start = perfNow();
+    const map = buildKeyIndex(flatTreeA);
+    if (flatTreeA.length > 0) {
+      recordValue('tree:keyIndex', perfNow() - start, 'ms', {
+        side: 'A',
+        items: flatTreeA.length,
+      });
+    }
+    return map;
+  }, [flatTreeA]);
+  const keyToIndexB = useMemo(() => {
+    const start = perfNow();
+    const map = buildKeyIndex(flatTreeB);
+    if (flatTreeB.length > 0) {
+      recordValue('tree:keyIndex', perfNow() - start, 'ms', {
+        side: 'B',
+        items: flatTreeB.length,
+      });
+    }
+    return map;
+  }, [flatTreeB]);
 
   useEffect(() => {
     onSummaryChange?.(treeSummary);
@@ -130,6 +219,7 @@ export function TreeView({
   // - Prefer grouping by key attributes
   // - Fallback to any diff node when no group roots exist
   const { diffIndexMap, indexToKey, navMode } = useMemo(() => {
+    const start = perfNow();
     const indexMap = new Map<string, number>();
     const reverseMap = new Map<number, string>();
     let diffIdx = 0;
@@ -164,7 +254,14 @@ export function TreeView({
     traverseLeft(treeA);
 
     if (hasGroupRoots) {
-      return { diffIndexMap: indexMap, indexToKey: reverseMap, navMode: 'group' as const };
+      const result = { diffIndexMap: indexMap, indexToKey: reverseMap, navMode: 'group' as const };
+      if (treeA || treeB) {
+        recordValue('tree:navIndex', perfNow() - start, 'ms', {
+          mode: result.navMode,
+          count: result.diffIndexMap.size,
+        });
+      }
+      return result;
     }
 
     const fallbackIndexMap = new Map<string, number>();
@@ -184,11 +281,38 @@ export function TreeView({
     }
 
     traverseAll(treeA);
-    return { diffIndexMap: fallbackIndexMap, indexToKey: fallbackReverseMap, navMode: 'node' as const };
+    const result = { diffIndexMap: fallbackIndexMap, indexToKey: fallbackReverseMap, navMode: 'node' as const };
+    if (treeA || treeB) {
+      recordValue('tree:navIndex', perfNow() - start, 'ms', {
+        mode: result.navMode,
+        count: result.diffIndexMap.size,
+      });
+    }
+    return result;
   }, [treeA, activeFilters]);
 
-  const keyPathMapA = useMemo(() => buildKeyPathMap(treeA), [treeA]);
-  const keyPathMapB = useMemo(() => buildKeyPathMap(treeB), [treeB]);
+  const keyPathMapA = useMemo(() => {
+    const start = perfNow();
+    const map = buildKeyPathMap(treeA);
+    if (treeA) {
+      recordValue('tree:keyPath', perfNow() - start, 'ms', {
+        side: 'A',
+        keys: map.size,
+      });
+    }
+    return map;
+  }, [treeA]);
+  const keyPathMapB = useMemo(() => {
+    const start = perfNow();
+    const map = buildKeyPathMap(treeB);
+    if (treeB) {
+      recordValue('tree:keyPath', perfNow() - start, 'ms', {
+        side: 'B',
+        keys: map.size,
+      });
+    }
+    return map;
+  }, [treeB]);
 
   useEffect(() => {
     if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
