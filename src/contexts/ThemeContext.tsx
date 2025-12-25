@@ -27,7 +27,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     if (saved === 'default' || saved === 'linear' || saved === 'github' || saved === 'supabase') {
       return saved;
     }
-    return 'default';
+    return 'linear';
   });
 
   useEffect(() => {

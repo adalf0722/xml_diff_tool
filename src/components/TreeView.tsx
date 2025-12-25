@@ -4,7 +4,7 @@
  */
 
 import { forwardRef, useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Maximize2, Minimize2, Filter } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { ParseResult, XMLNode } from '../core/xml-parser';
 import type { DiffResult, DiffType } from '../core/xml-diff';
@@ -482,48 +482,51 @@ export function TreeView({
     <div className="h-full flex flex-col">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-        <button
-          onClick={handleExpandAll}
-          disabled={isFullyExpanded}
-          className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
-            isFullyExpanded 
-              ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] cursor-default' 
-              : 'hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]'
-          }`}
-        >
-          <Maximize2 size={14} />
-          {t.expandAll}
-        </button>
-        <button
-          onClick={handleCollapseAll}
-          disabled={isFullyCollapsed}
-          className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
-            isFullyCollapsed 
-              ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] cursor-default' 
-              : 'hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]'
-          }`}
-        >
-          <Minimize2 size={14} />
-          {t.collapseAll}
-        </button>
-        {isLargeFileMode && (
+        <div className="flex items-center gap-1 rounded-md bg-[var(--color-bg-tertiary)]/40 p-1">
           <button
-            onClick={() => setDiffOnlyOverride(!showDiffOnly)}
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
+            onClick={handleExpandAll}
+            disabled={isFullyExpanded}
+            title={t.expandAll}
+            className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+              isFullyExpanded 
+                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] cursor-default' 
+                : 'hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]'
+            }`}
           >
-            {showDiffOnly ? t.showFullTree : t.showDiffOnly}
+            <Maximize2 size={14} />
+            <span className="hidden sm:inline">{t.expandAll}</span>
           </button>
-        )}
-        {isLargeFileMode && showDiffOnly && (
-          <span className="text-xs text-[var(--color-text-muted)]">
-            {t.diffOnlyTreeHint}
-          </span>
-        )}
-        <span className="text-xs text-[var(--color-text-muted)]">
+          <button
+            onClick={handleCollapseAll}
+            disabled={isFullyCollapsed}
+            title={t.collapseAll}
+            className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+              isFullyCollapsed 
+                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] cursor-default' 
+                : 'hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]'
+            }`}
+          >
+            <Minimize2 size={14} />
+            <span className="hidden sm:inline">{t.collapseAll}</span>
+          </button>
+          {isLargeFileMode && (
+            <button
+              onClick={() => setDiffOnlyOverride(!showDiffOnly)}
+              title={t.diffOnlyTreeHint}
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
+            >
+              <Filter size={14} />
+              <span className="hidden sm:inline">{showDiffOnly ? t.showFullTree : t.showDiffOnly}</span>
+            </button>
+          )}
+        </div>
+        <span className="text-xs text-[var(--color-text-muted)] hidden md:inline">
           {t.treeExpandStateLabel.replace('{state}', expandStateLabel)}
         </span>
         <div className="flex-1" />
-        <DiffLegend />
+        <div className="hidden lg:flex">
+          <DiffLegend />
+        </div>
       </div>
 
       {/* Tree panels */}

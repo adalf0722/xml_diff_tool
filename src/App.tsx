@@ -698,8 +698,8 @@ function AppContent() {
           <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-2 px-4 py-2">
               {!showInputPanel && (
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 md:divide-x md:divide-[var(--color-border)]">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:pr-4">
                     <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">
                       A
                     </span>
@@ -712,7 +712,7 @@ function AppContent() {
                     <span className="text-[var(--color-text-muted)]">|</span>
                     <span className={`hidden lg:inline ${summaryA.status.className}`}>{summaryA.status.label}</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:pl-4">
                     <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                       B
                     </span>
