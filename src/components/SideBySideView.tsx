@@ -4,7 +4,8 @@
  * Uses line-level diff for accurate highlighting
  */
 
-import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
+import { forwardRef, useRef, useEffect, useCallback, useMemo, useState } from 'react';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { DiffResult, DiffType } from '../core/xml-diff';
 import { prettyPrintXML } from '../utils/pretty-print';
 import { diffLines } from '../utils/line-diff';
@@ -19,6 +20,7 @@ interface SideBySideViewProps {
   lineDiffOps?: LineDiffOp[];
   diffResults: DiffResult[];
   activeFilters: Set<DiffType>;
+  activeDiffIndex?: number;
   disableSyntaxHighlight?: boolean;
   progressiveRender?: boolean;
   initialRenderCount?: number;
@@ -34,6 +36,14 @@ interface AlignedLine {
   right: { lineNumber: number | null; content: string; type: LineDiffType } | null;
 }
 
+const VirtuosoList = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  (props, ref) => (
+    <div ref={ref} {...props} className={`min-w-max ${props.className || ''}`} />
+  )
+);
+
+VirtuosoList.displayName = 'VirtuosoList';
+
 export function SideBySideView({
   xmlA,
   xmlB,
@@ -41,6 +51,7 @@ export function SideBySideView({
   formattedXmlB,
   lineDiffOps,
   activeFilters,
+  activeDiffIndex,
   disableSyntaxHighlight = false,
   progressiveRender = false,
   initialRenderCount = 400,
@@ -49,8 +60,10 @@ export function SideBySideView({
   contextLines = 3,
 }: SideBySideViewProps) {
   const { t } = useLanguage();
-  const leftPanelRef = useRef<HTMLDivElement>(null);
-  const rightPanelRef = useRef<HTMLDivElement>(null);
+  const leftVirtuosoRef = useRef<VirtuosoHandle>(null);
+  const rightVirtuosoRef = useRef<VirtuosoHandle>(null);
+  const leftScrollerRef = useRef<HTMLElement | null>(null);
+  const rightScrollerRef = useRef<HTMLElement | null>(null);
   const isScrolling = useRef(false);
 
   // Format XML for display
@@ -183,13 +196,29 @@ export function SideBySideView({
     return displayItems.slice(0, visibleCount);
   }, [displayItems, visibleCount]);
 
+  const useVirtualization = true;
+  const renderItems = useVirtualization ? displayItems : visibleItems;
+  const showRendering = progressiveRender && isRendering && !useVirtualization;
+
+  const diffToDisplayIndex = useMemo(() => {
+    const map = new Map<number, number>();
+    renderItems.forEach((item, displayIndex) => {
+      if (item.type !== 'line') return;
+      const diffIdx = diffIndexMap.get(item.lineIndex);
+      if (diffIdx !== undefined && !map.has(diffIdx)) {
+        map.set(diffIdx, displayIndex);
+      }
+    });
+    return map;
+  }, [diffIndexMap, renderItems]);
+
   // Synchronized scrolling
   const handleScroll = useCallback((source: 'left' | 'right') => {
     if (isScrolling.current) return;
     isScrolling.current = true;
 
-    const sourcePanel = source === 'left' ? leftPanelRef.current : rightPanelRef.current;
-    const targetPanel = source === 'left' ? rightPanelRef.current : leftPanelRef.current;
+    const sourcePanel = source === 'left' ? leftScrollerRef.current : rightScrollerRef.current;
+    const targetPanel = source === 'left' ? rightScrollerRef.current : leftScrollerRef.current;
 
     if (sourcePanel && targetPanel) {
       targetPanel.scrollTop = sourcePanel.scrollTop;
@@ -201,21 +230,57 @@ export function SideBySideView({
     });
   }, []);
 
+  const handleLeftScroll = useCallback(() => handleScroll('left'), [handleScroll]);
+  const handleRightScroll = useCallback(() => handleScroll('right'), [handleScroll]);
+
+  const attachScroller = useCallback((
+    side: 'left' | 'right',
+    element: HTMLElement | Window | null
+  ) => {
+    const normalized = element instanceof HTMLElement ? element : null;
+    const currentRef = side === 'left' ? leftScrollerRef : rightScrollerRef;
+    const handler = side === 'left' ? handleLeftScroll : handleRightScroll;
+    if (currentRef.current === normalized) return;
+    if (currentRef.current) {
+      currentRef.current.removeEventListener('scroll', handler);
+    }
+    currentRef.current = normalized;
+    if (normalized) {
+      normalized.addEventListener('scroll', handler, { passive: true });
+    }
+  }, [handleLeftScroll, handleRightScroll]);
+
   useEffect(() => {
-    const leftPanel = leftPanelRef.current;
-    const rightPanel = rightPanelRef.current;
-
-    const handleLeftScroll = () => handleScroll('left');
-    const handleRightScroll = () => handleScroll('right');
-
-    leftPanel?.addEventListener('scroll', handleLeftScroll);
-    rightPanel?.addEventListener('scroll', handleRightScroll);
-
     return () => {
-      leftPanel?.removeEventListener('scroll', handleLeftScroll);
-      rightPanel?.removeEventListener('scroll', handleRightScroll);
+      leftScrollerRef.current?.removeEventListener('scroll', handleLeftScroll);
+      rightScrollerRef.current?.removeEventListener('scroll', handleRightScroll);
     };
-  }, [handleScroll]);
+  }, [handleLeftScroll, handleRightScroll]);
+
+  useEffect(() => {
+    if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
+    const targetIndex = diffToDisplayIndex.get(activeDiffIndex);
+    if (targetIndex === undefined) return;
+
+    leftVirtuosoRef.current?.scrollToIndex({ index: targetIndex, align: 'center', behavior: 'smooth' });
+    rightVirtuosoRef.current?.scrollToIndex({ index: targetIndex, align: 'center', behavior: 'smooth' });
+
+    const selector = `[data-diff-id="diff-${activeDiffIndex}"]`;
+    const timer = setTimeout(() => {
+      [leftScrollerRef.current, rightScrollerRef.current].forEach(container => {
+        if (!container) return;
+        const targets = container.querySelectorAll(selector);
+        targets.forEach(target => {
+          target.classList.add('diff-highlight-pulse');
+          setTimeout(() => {
+            target.classList.remove('diff-highlight-pulse');
+          }, 1000);
+        });
+      });
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [activeDiffIndex, diffToDisplayIndex]);
 
   const maxLineNumber = Math.max(
     ...alignedLines.map(l => l.left?.lineNumber || 0),
@@ -225,7 +290,7 @@ export function SideBySideView({
 
   return (
     <div className="relative h-full">
-      {isRendering && totalLines > 0 && (
+      {showRendering && totalLines > 0 && (
         <div className="absolute right-3 top-2 z-10 rounded-full border border-[var(--color-diff-modified-border)] bg-[var(--color-diff-modified-bg)] px-3 py-1 text-xs font-semibold text-[var(--color-diff-modified-text)] shadow-sm pointer-events-none flex items-center gap-2">
           <span className="absolute inset-0 rounded-full bg-[var(--color-diff-modified-bg)] opacity-70 animate-pulse" />
           <span
@@ -247,38 +312,41 @@ export function SideBySideView({
             {t.originalXml}
           </h4>
         </div>
-        <div
-          ref={leftPanelRef}
-          className="flex-1 overflow-auto font-mono text-sm"
-        >
-          <div className="min-w-max">
-            {visibleItems.map((item) => {
-              if (item.type === 'collapse') {
-                return (
-                  <CollapsedLine
-                    key={`collapse-${item.start}-${item.end}`}
-                    lineNumberWidth={lineNumberWidth}
-                    count={item.count}
-                  />
-                );
-              }
-              const diffIdx = diffIndexMap.get(item.lineIndex);
+        <Virtuoso
+          ref={leftVirtuosoRef}
+          scrollerRef={(element) => attachScroller('left', element)}
+          totalCount={renderItems.length}
+          className="flex-1 font-mono text-sm"
+          style={{ height: '100%' }}
+          itemContent={(index) => {
+            const item = renderItems[index];
+            if (!item) return null;
+            if (item.type === 'collapse') {
               return (
-                <DiffLine
-                  key={`line-${item.lineIndex}`}
-                  lineNumber={item.line.left?.lineNumber || null}
-                  content={item.line.left?.content || ''}
+                <CollapsedLine
+                  key={`collapse-${item.start}-${item.end}`}
                   lineNumberWidth={lineNumberWidth}
-                  diffType={item.line.left?.type || null}
-                  isEmpty={!item.line.left}
-                  activeFilters={activeFilters}
-                  disableSyntaxHighlight={disableSyntaxHighlight}
-                  diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
+                  count={item.count}
                 />
               );
-            })}
-          </div>
-        </div>
+            }
+            const diffIdx = diffIndexMap.get(item.lineIndex);
+            return (
+              <DiffLine
+                key={`line-${item.lineIndex}`}
+                lineNumber={item.line.left?.lineNumber || null}
+                content={item.line.left?.content || ''}
+                lineNumberWidth={lineNumberWidth}
+                diffType={item.line.left?.type || null}
+                isEmpty={!item.line.left}
+                activeFilters={activeFilters}
+                disableSyntaxHighlight={disableSyntaxHighlight}
+                diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
+              />
+            );
+          }}
+          components={{ List: VirtuosoList }}
+        />
       </div>
 
       {/* Right Panel - XML B (New) */}
@@ -288,38 +356,41 @@ export function SideBySideView({
             {t.newXml}
           </h4>
         </div>
-        <div
-          ref={rightPanelRef}
-          className="flex-1 overflow-auto font-mono text-sm"
-        >
-          <div className="min-w-max">
-            {visibleItems.map((item) => {
-              if (item.type === 'collapse') {
-                return (
-                  <CollapsedLine
-                    key={`collapse-${item.start}-${item.end}`}
-                    lineNumberWidth={lineNumberWidth}
-                    count={item.count}
-                  />
-                );
-              }
-              const diffIdx = diffIndexMap.get(item.lineIndex);
+        <Virtuoso
+          ref={rightVirtuosoRef}
+          scrollerRef={(element) => attachScroller('right', element)}
+          totalCount={renderItems.length}
+          className="flex-1 font-mono text-sm"
+          style={{ height: '100%' }}
+          itemContent={(index) => {
+            const item = renderItems[index];
+            if (!item) return null;
+            if (item.type === 'collapse') {
               return (
-                <DiffLine
-                  key={`line-${item.lineIndex}`}
-                  lineNumber={item.line.right?.lineNumber || null}
-                  content={item.line.right?.content || ''}
+                <CollapsedLine
+                  key={`collapse-${item.start}-${item.end}`}
                   lineNumberWidth={lineNumberWidth}
-                  diffType={item.line.right?.type || null}
-                  isEmpty={!item.line.right}
-                  activeFilters={activeFilters}
-                  disableSyntaxHighlight={disableSyntaxHighlight}
-                  diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
+                  count={item.count}
                 />
               );
-            })}
-          </div>
-        </div>
+            }
+            const diffIdx = diffIndexMap.get(item.lineIndex);
+            return (
+              <DiffLine
+                key={`line-${item.lineIndex}`}
+                lineNumber={item.line.right?.lineNumber || null}
+                content={item.line.right?.content || ''}
+                lineNumberWidth={lineNumberWidth}
+                diffType={item.line.right?.type || null}
+                isEmpty={!item.line.right}
+                activeFilters={activeFilters}
+                disableSyntaxHighlight={disableSyntaxHighlight}
+                diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
+              />
+            );
+          }}
+          components={{ List: VirtuosoList }}
+        />
       </div>
       </div>
     </div>

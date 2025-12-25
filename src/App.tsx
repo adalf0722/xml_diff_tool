@@ -97,7 +97,6 @@ function AppContent() {
 
   // Navigation state
   const [currentDiffIndex, setCurrentDiffIndex] = useState(0);
-  const diffViewRef = useRef<HTMLDivElement>(null);
   const [treeNavCount, setTreeNavCount] = useState(0);
   const [treeScope, setTreeScope] = useState<'full' | 'diff-only'>('full');
   const [treeSummary, setTreeSummary] = useState<{
@@ -258,23 +257,6 @@ function AppContent() {
     if (index < 0 || index >= totalNavigableDiffs) return;
     
     setCurrentDiffIndex(index);
-    
-    // Find ALL matching elements (both sides in side-by-side/tree views)
-    if (diffViewRef.current) {
-      const elements = diffViewRef.current.querySelectorAll(`[data-diff-id="diff-${index}"]`);
-      if (elements.length > 0) {
-        // Scroll ALL matching elements (each in its own scroll container)
-        // This ensures both left and right panels scroll to the correct position
-        elements.forEach(element => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Add highlight animation
-          element.classList.add('diff-highlight-pulse');
-          setTimeout(() => {
-            element.classList.remove('diff-highlight-pulse');
-          }, 1000);
-        });
-      }
-    }
   }, [totalNavigableDiffs]);
 
   // Swap XML content
@@ -712,7 +694,7 @@ function AppContent() {
 
         {/* Diff view */}
         {!showParseError && (
-          <div className="flex-1 overflow-hidden" ref={diffViewRef}>
+          <div className="flex-1 overflow-hidden">
             {activeView === 'side-by-side' && (
               <SideBySideView
                 xmlA={displayXmlA}
@@ -722,6 +704,7 @@ function AppContent() {
                 lineDiffOps={lineDiffOps}
                 diffResults={filteredDiffResults}
                 activeFilters={activeFilters}
+                activeDiffIndex={currentDiffIndex}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}
@@ -736,6 +719,7 @@ function AppContent() {
                 formattedXmlB={displayXmlB}
                 lineDiff={inlineLineDiff}
                 activeFilters={activeFilters}
+                activeDiffIndex={currentDiffIndex}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}

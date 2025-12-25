@@ -3,7 +3,8 @@
  * Shows unified diff with additions and deletions inline
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { forwardRef, useMemo, useState, useEffect, useRef } from 'react';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { generateLineDiff } from '../core/xml-diff';
 import type { UnifiedDiffLine, DiffType } from '../core/xml-diff';
 import { prettyPrintXML } from '../utils/pretty-print';
@@ -17,12 +18,21 @@ interface InlineViewProps {
   formattedXmlB?: string;
   lineDiff?: UnifiedDiffLine[];
   disableSyntaxHighlight?: boolean;
+  activeDiffIndex?: number;
   progressiveRender?: boolean;
   initialRenderCount?: number;
   renderBatchSize?: number;
   collapseUnchanged?: boolean;
   contextLines?: number;
 }
+
+const VirtuosoList = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  (props, ref) => (
+    <div ref={ref} {...props} className={`min-w-max ${props.className || ''}`} />
+  )
+);
+
+VirtuosoList.displayName = 'VirtuosoList';
 
 export function InlineView({
   xmlA,
@@ -32,6 +42,7 @@ export function InlineView({
   formattedXmlB,
   lineDiff: providedLineDiff,
   disableSyntaxHighlight = false,
+  activeDiffIndex,
   progressiveRender = false,
   initialRenderCount = 400,
   renderBatchSize = 400,
@@ -39,6 +50,8 @@ export function InlineView({
   contextLines = 3,
 }: InlineViewProps) {
   const { t } = useLanguage();
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
   // Format and generate line diff
   const lineDiff = useMemo(() => {
     if (providedLineDiff) return providedLineDiff;
@@ -180,6 +193,45 @@ export function InlineView({
     return displayItems.slice(0, visibleCount);
   }, [displayItems, visibleCount]);
 
+  const useVirtualization = true;
+  const renderItems = useVirtualization ? displayItems : visibleItems;
+  const showRendering = progressiveRender && isRendering && !useVirtualization;
+
+  const diffToDisplayIndex = useMemo(() => {
+    const map = new Map<number, number>();
+    renderItems.forEach((item, displayIndex) => {
+      if (item.type !== 'line') return;
+      const diffIdx = diffIndexMap.get(item.lineIndex);
+      if (diffIdx !== undefined && !map.has(diffIdx)) {
+        map.set(diffIdx, displayIndex);
+      }
+    });
+    return map;
+  }, [diffIndexMap, renderItems]);
+
+  useEffect(() => {
+    if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
+    const targetIndex = diffToDisplayIndex.get(activeDiffIndex);
+    if (targetIndex === undefined) return;
+
+    virtuosoRef.current?.scrollToIndex({ index: targetIndex, align: 'center', behavior: 'smooth' });
+
+    const selector = `[data-diff-id="diff-${activeDiffIndex}"]`;
+    const timer = setTimeout(() => {
+      const container = scrollerRef.current;
+      if (!container) return;
+      const targets = container.querySelectorAll(selector);
+      targets.forEach(target => {
+        target.classList.add('diff-highlight-pulse');
+        setTimeout(() => {
+          target.classList.remove('diff-highlight-pulse');
+        }, 1000);
+      });
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [activeDiffIndex, diffToDisplayIndex]);
+
   if (lineDiff.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
@@ -189,8 +241,8 @@ export function InlineView({
   }
 
   return (
-    <div className="relative h-full overflow-auto font-mono text-sm">
-      {isRendering && totalLines > 0 && (
+    <div className="relative h-full font-mono text-sm">
+      {showRendering && totalLines > 0 && (
         <div className="absolute right-3 top-2 z-10 rounded-full border border-[var(--color-diff-modified-border)] bg-[var(--color-diff-modified-bg)] px-3 py-1 text-xs font-semibold text-[var(--color-diff-modified-text)] shadow-sm pointer-events-none flex items-center gap-2">
           <span className="absolute inset-0 rounded-full bg-[var(--color-diff-modified-bg)] opacity-70 animate-pulse" />
           <span
@@ -204,8 +256,17 @@ export function InlineView({
           </span>
         </div>
       )}
-      <div className="min-w-max">
-        {visibleItems.map((item) => {
+      <Virtuoso
+        ref={virtuosoRef}
+        scrollerRef={(element) => {
+          scrollerRef.current = element instanceof HTMLElement ? element : null;
+        }}
+        totalCount={renderItems.length}
+        className="h-full"
+        style={{ height: '100%' }}
+        itemContent={(index) => {
+          const item = renderItems[index];
+          if (!item) return null;
           if (item.type === 'collapse') {
             return (
               <CollapsedInlineLine
@@ -226,8 +287,9 @@ export function InlineView({
               diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
             />
           );
-        })}
-      </div>
+        }}
+        components={{ List: VirtuosoList }}
+      />
     </div>
   );
 }
