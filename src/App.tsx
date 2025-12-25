@@ -95,6 +95,10 @@ function AppContent() {
   // View state
   const [activeView, setActiveView] = useState<ViewMode>('side-by-side');
   const [showInputPanel, setShowInputPanel] = useState(true);
+  const inputPanelUserToggledRef = useRef(false);
+  const inputPanelAutoCollapsedRef = useRef(false);
+  const inputPanelEditedARef = useRef(false);
+  const inputPanelEditedBRef = useRef(false);
   const [showFullInputAOverride, setShowFullInputAOverride] = useState<boolean | null>(null);
   const [showFullInputBOverride, setShowFullInputBOverride] = useState<boolean | null>(null);
   const [largeFileModeOverride, setLargeFileModeOverride] = useState<boolean | null>(null);
@@ -289,15 +293,28 @@ function AppContent() {
     pendingJumpIndexRef.current = null;
   }, []);
 
+  // Toggle input panel
+  const handleToggleInput = useCallback(() => {
+    inputPanelUserToggledRef.current = true;
+    setShowInputPanel(prev => !prev);
+  }, []);
+
   // Swap XML content
   const handleSwap = useCallback(() => {
+    inputPanelEditedARef.current = true;
+    inputPanelEditedBRef.current = true;
     setXmlA(xmlB);
     setXmlB(xmlA);
   }, [xmlA, xmlB]);
 
-  // Toggle input panel
-  const handleToggleInput = useCallback(() => {
-    setShowInputPanel(prev => !prev);
+  const handleXmlAChange = useCallback((value: string) => {
+    inputPanelEditedARef.current = true;
+    setXmlA(value);
+  }, []);
+
+  const handleXmlBChange = useCallback((value: string) => {
+    inputPanelEditedBRef.current = true;
+    setXmlB(value);
   }, []);
 
   // Handle batch folder selection
@@ -534,6 +551,17 @@ function AppContent() {
   }, [cancelAll, resetLineDiffState]);
 
   useEffect(() => {
+    if (appMode !== 'single') return;
+    if (singleFileState !== 'done') return;
+    if (!showInputPanel) return;
+    if (inputPanelUserToggledRef.current) return;
+    if (!inputPanelEditedARef.current || !inputPanelEditedBRef.current) return;
+    if (inputPanelAutoCollapsedRef.current) return;
+    inputPanelAutoCollapsedRef.current = true;
+    setShowInputPanel(false);
+  }, [appMode, singleFileState, showInputPanel]);
+
+  useEffect(() => {
     if (!isLargeFile) {
       setLargeFileModeOverride(null);
     }
@@ -619,7 +647,7 @@ function AppContent() {
                 <XMLInputPanel
                   label={t.xmlALabel}
                   value={xmlA}
-                  onChange={setXmlA}
+                  onChange={handleXmlAChange}
                   error={parseResultA.error}
                   placeholder={t.xmlAPlaceholder}
                   isLarge={isLargeInputA}
@@ -645,7 +673,7 @@ function AppContent() {
                 <XMLInputPanel
                   label={t.xmlBLabel}
                   value={xmlB}
-                  onChange={setXmlB}
+                  onChange={handleXmlBChange}
                   error={parseResultB.error}
                   placeholder={t.xmlBPlaceholder}
                   isLarge={isLargeInputB}
