@@ -3,7 +3,7 @@
  * Shows unified diff with additions and deletions inline
  */
 
-import { forwardRef, useMemo, useState, useEffect, useRef } from 'react';
+import { forwardRef, useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { generateLineDiff } from '../core/xml-diff';
 import type { UnifiedDiffLine, DiffType } from '../core/xml-diff';
@@ -54,6 +54,8 @@ export function InlineView({
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
+  const [expandedRanges, setExpandedRanges] = useState<Array<{ start: number; end: number }>>([]);
+  const expandPreviewCount = 50;
   // Format and generate line diff
   const lineDiff = useMemo(() => {
     if (providedLineDiff) return providedLineDiff;
@@ -132,6 +134,16 @@ export function InlineView({
       });
     }
 
+    if (expandedRanges.length > 0) {
+      expandedRanges.forEach(({ start, end }) => {
+        const clampedStart = Math.max(0, Math.min(start, total - 1));
+        const clampedEnd = Math.max(clampedStart, Math.min(end, total - 1));
+        for (let i = clampedStart; i <= clampedEnd; i += 1) {
+          showFlags[i] = true;
+        }
+      });
+    }
+
     const items: Array<
       | { type: 'line'; line: UnifiedDiffLine & { isFirstInGroup: boolean; isLastInGroup: boolean }; lineIndex: number }
       | { type: 'collapse'; start: number; end: number; count: number }
@@ -150,7 +162,17 @@ export function InlineView({
     }
 
     return items;
-  }, [collapseUnchanged, contextLines, groupedLines]);
+  }, [collapseUnchanged, contextLines, groupedLines, expandedRanges]);
+
+  useEffect(() => {
+    if (!collapseUnchanged) {
+      setExpandedRanges([]);
+    }
+  }, [collapseUnchanged]);
+
+  useEffect(() => {
+    setExpandedRanges([]);
+  }, [groupedLines.length]);
 
   const totalLines = displayItems.length;
   const [visibleCount, setVisibleCount] = useState(() => {
@@ -211,10 +233,53 @@ export function InlineView({
     return map;
   }, [diffIndexMap, renderItems]);
 
+  const diffToLineIndex = useMemo(() => {
+    const map = new Map<number, number>();
+    diffIndexMap.forEach((diffIdx, lineIdx) => {
+      if (!map.has(diffIdx)) {
+        map.set(diffIdx, lineIdx);
+      }
+    });
+    return map;
+  }, [diffIndexMap]);
+
+  const addExpandedRange = useCallback((start: number, end: number) => {
+    const total = groupedLines.length;
+    if (total === 0) return;
+    const clampedStart = Math.max(0, Math.min(start, total - 1));
+    const clampedEnd = Math.max(clampedStart, Math.min(end, total - 1));
+
+    setExpandedRanges(prev => {
+      const ranges = [...prev, { start: clampedStart, end: clampedEnd }]
+        .sort((a, b) => a.start - b.start);
+      const merged: Array<{ start: number; end: number }> = [];
+      for (const range of ranges) {
+        if (merged.length === 0) {
+          merged.push({ ...range });
+          continue;
+        }
+        const last = merged[merged.length - 1];
+        if (range.start <= last.end + 1) {
+          last.end = Math.max(last.end, range.end);
+        } else {
+          merged.push({ ...range });
+        }
+      }
+      return merged;
+    });
+  }, [groupedLines.length]);
+
   useEffect(() => {
     if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
+    const targetLineIndex = diffToLineIndex.get(activeDiffIndex);
+    if (targetLineIndex === undefined) return;
     const targetIndex = diffToDisplayIndex.get(activeDiffIndex);
-    if (targetIndex === undefined) return;
+    if (targetIndex === undefined) {
+      if (collapseUnchanged) {
+        addExpandedRange(targetLineIndex - contextLines, targetLineIndex + contextLines);
+      }
+      return;
+    }
 
     virtuosoRef.current?.scrollToIndex({ index: targetIndex, align: 'center', behavior: 'smooth' });
 
@@ -233,7 +298,15 @@ export function InlineView({
     }, 120);
 
     return () => clearTimeout(timer);
-  }, [activeDiffIndex, diffToDisplayIndex, onJumpComplete]);
+  }, [
+    activeDiffIndex,
+    addExpandedRange,
+    collapseUnchanged,
+    contextLines,
+    diffToDisplayIndex,
+    diffToLineIndex,
+    onJumpComplete,
+  ]);
 
   if (lineDiff.length === 0) {
     return (
@@ -276,6 +349,10 @@ export function InlineView({
                 key={`collapse-${item.start}-${item.end}`}
                 lineNumberWidth={lineNumberWidth}
                 count={item.count}
+                onExpand={() => addExpandedRange(item.start, item.end)}
+                onExpandChunk={() => addExpandedRange(item.start, item.start + expandPreviewCount - 1)}
+                expandLabel={t.expandSection}
+                expandChunkLabel={t.expandLines.replace('{count}', expandPreviewCount.toLocaleString())}
               />
             );
           }
@@ -297,26 +374,53 @@ export function InlineView({
   );
 }
 
-function CollapsedInlineLine({ lineNumberWidth, count }: { lineNumberWidth: number; count: number }) {
+function CollapsedInlineLine({
+  lineNumberWidth,
+  count,
+  onExpand,
+  onExpandChunk,
+  expandLabel,
+  expandChunkLabel,
+}: {
+  lineNumberWidth: number;
+  count: number;
+  onExpand: () => void;
+  onExpandChunk: () => void;
+  expandLabel: string;
+  expandChunkLabel: string;
+}) {
   const { t } = useLanguage();
   return (
-    <div className="flex bg-[var(--color-bg-tertiary)]/30 text-[var(--color-text-muted)]">
+    <div className="flex items-center bg-[var(--color-bg-tertiary)]/30 text-[var(--color-text-muted)]">
       <span
         className="flex-shrink-0 px-1 py-0.5 text-right bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] select-none"
         style={{ width: lineNumberWidth }}
       >
-        …
-      </span>
+        ...</span>
       <span
         className="flex-shrink-0 px-1 py-0.5 text-right bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] select-none"
         style={{ width: lineNumberWidth }}
       >
-        …
-      </span>
+        ...</span>
       <span className="flex-shrink-0 w-6 px-1 py-0.5 text-center font-bold">
-        …
-      </span>
-      <pre className="flex-1 px-2 py-0.5 whitespace-pre overflow-hidden">
+        ...</span>
+      <div className="flex flex-shrink-0 items-center gap-2 px-2">
+        <button
+          type="button"
+          onClick={onExpand}
+          className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-xs font-semibold text-white shadow-sm hover:bg-[var(--color-accent-hover)]"
+        >
+          {expandLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onExpandChunk}
+          className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+        >
+          {expandChunkLabel}
+        </button>
+      </div>
+      <pre className="flex-1 px-2 py-0.5 whitespace-pre overflow-hidden text-[var(--color-text-secondary)]">
         {t.collapsedLines.replace('{count}', count.toLocaleString())}
       </pre>
     </div>

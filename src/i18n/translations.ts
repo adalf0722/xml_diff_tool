@@ -151,6 +151,8 @@ export interface Translations {
   treeExpandStatePartial: string;
   treeExpandStateLabel: string;
   collapsedLines: string;
+  expandSection: string;
+  expandLines: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -300,6 +302,8 @@ export const translations: Record<Language, Translations> = {
     treeExpandStatePartial: 'Partial',
     treeExpandStateLabel: 'Tree state: {state}',
     collapsedLines: 'Collapsed {count} lines',
+    expandSection: 'Expand section',
+    expandLines: 'Expand {count} lines',
   },
 
   'zh-TW': {
@@ -448,6 +452,8 @@ export const translations: Record<Language, Translations> = {
     treeExpandStatePartial: '部分展開',
     treeExpandStateLabel: '樹狀狀態：{state}',
     collapsedLines: '已收合 {count} 行',
+    expandSection: '展開區段',
+    expandLines: '展開 {count} 行',
   },
 
   'zh-CN': {
@@ -596,6 +602,8 @@ export const translations: Record<Language, Translations> = {
     treeExpandStatePartial: '部分展开',
     treeExpandStateLabel: '树状状态：{state}',
     collapsedLines: '已折叠 {count} 行',
+    expandSection: '展开区段',
+    expandLines: '展开 {count} 行',
   },
 };
 

@@ -67,6 +67,8 @@ export function SideBySideView({
   const leftScrollerRef = useRef<HTMLElement | null>(null);
   const rightScrollerRef = useRef<HTMLElement | null>(null);
   const isScrolling = useRef(false);
+  const [expandedRanges, setExpandedRanges] = useState<Array<{ start: number; end: number }>>([]);
+  const expandPreviewCount = 50;
 
   // Format XML for display
   const formattedA = useMemo(() => {
@@ -135,6 +137,16 @@ export function SideBySideView({
       });
     }
 
+    if (expandedRanges.length > 0) {
+      expandedRanges.forEach(({ start, end }) => {
+        const clampedStart = Math.max(0, Math.min(start, total - 1));
+        const clampedEnd = Math.max(clampedStart, Math.min(end, total - 1));
+        for (let i = clampedStart; i <= clampedEnd; i += 1) {
+          showFlags[i] = true;
+        }
+      });
+    }
+
     const items: Array<
       | { type: 'line'; line: AlignedLine; lineIndex: number }
       | { type: 'collapse'; start: number; end: number; count: number }
@@ -153,7 +165,17 @@ export function SideBySideView({
     }
 
     return items;
-  }, [alignedLines, collapseUnchanged, contextLines]);
+  }, [alignedLines, collapseUnchanged, contextLines, expandedRanges]);
+
+  useEffect(() => {
+    if (!collapseUnchanged) {
+      setExpandedRanges([]);
+    }
+  }, [collapseUnchanged]);
+
+  useEffect(() => {
+    setExpandedRanges([]);
+  }, [alignedLines.length]);
 
   const totalLines = displayItems.length;
   const [visibleCount, setVisibleCount] = useState(() => {
@@ -214,6 +236,42 @@ export function SideBySideView({
     return map;
   }, [diffIndexMap, renderItems]);
 
+  const diffToLineIndex = useMemo(() => {
+    const map = new Map<number, number>();
+    diffIndexMap.forEach((diffIdx, lineIdx) => {
+      if (!map.has(diffIdx)) {
+        map.set(diffIdx, lineIdx);
+      }
+    });
+    return map;
+  }, [diffIndexMap]);
+
+  const addExpandedRange = useCallback((start: number, end: number) => {
+    const total = alignedLines.length;
+    if (total === 0) return;
+    const clampedStart = Math.max(0, Math.min(start, total - 1));
+    const clampedEnd = Math.max(clampedStart, Math.min(end, total - 1));
+
+    setExpandedRanges(prev => {
+      const ranges = [...prev, { start: clampedStart, end: clampedEnd }]
+        .sort((a, b) => a.start - b.start);
+      const merged: Array<{ start: number; end: number }> = [];
+      for (const range of ranges) {
+        if (merged.length === 0) {
+          merged.push({ ...range });
+          continue;
+        }
+        const last = merged[merged.length - 1];
+        if (range.start <= last.end + 1) {
+          last.end = Math.max(last.end, range.end);
+        } else {
+          merged.push({ ...range });
+        }
+      }
+      return merged;
+    });
+  }, [alignedLines.length]);
+
   // Synchronized scrolling
   const handleScroll = useCallback((source: 'left' | 'right') => {
     if (isScrolling.current) return;
@@ -261,8 +319,15 @@ export function SideBySideView({
 
   useEffect(() => {
     if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
+    const targetLineIndex = diffToLineIndex.get(activeDiffIndex);
+    if (targetLineIndex === undefined) return;
     const targetIndex = diffToDisplayIndex.get(activeDiffIndex);
-    if (targetIndex === undefined) return;
+    if (targetIndex === undefined) {
+      if (collapseUnchanged) {
+        addExpandedRange(targetLineIndex - contextLines, targetLineIndex + contextLines);
+      }
+      return;
+    }
 
     leftVirtuosoRef.current?.scrollToIndex({ index: targetIndex, align: 'center', behavior: 'smooth' });
     rightVirtuosoRef.current?.scrollToIndex({ index: targetIndex, align: 'center', behavior: 'smooth' });
@@ -283,7 +348,15 @@ export function SideBySideView({
     }, 120);
 
     return () => clearTimeout(timer);
-  }, [activeDiffIndex, diffToDisplayIndex, onJumpComplete]);
+  }, [
+    activeDiffIndex,
+    addExpandedRange,
+    collapseUnchanged,
+    contextLines,
+    diffToDisplayIndex,
+    diffToLineIndex,
+    onJumpComplete,
+  ]);
 
   const maxLineNumber = Math.max(
     ...alignedLines.map(l => l.left?.lineNumber || 0),
@@ -326,12 +399,16 @@ export function SideBySideView({
             if (!item) return null;
             if (item.type === 'collapse') {
               return (
-                <CollapsedLine
-                  key={`collapse-${item.start}-${item.end}`}
-                  lineNumberWidth={lineNumberWidth}
-                  count={item.count}
-                />
-              );
+                  <CollapsedLine
+                    key={`collapse-${item.start}-${item.end}`}
+                    lineNumberWidth={lineNumberWidth}
+                    count={item.count}
+                    onExpand={() => addExpandedRange(item.start, item.end)}
+                    onExpandChunk={() => addExpandedRange(item.start, item.start + expandPreviewCount - 1)}
+                    expandLabel={t.expandSection}
+                    expandChunkLabel={t.expandLines.replace('{count}', expandPreviewCount.toLocaleString())}
+                  />
+                );
             }
             const diffIdx = diffIndexMap.get(item.lineIndex);
             return (
@@ -370,12 +447,16 @@ export function SideBySideView({
             if (!item) return null;
             if (item.type === 'collapse') {
               return (
-                <CollapsedLine
-                  key={`collapse-${item.start}-${item.end}`}
-                  lineNumberWidth={lineNumberWidth}
-                  count={item.count}
-                />
-              );
+                  <CollapsedLine
+                    key={`collapse-${item.start}-${item.end}`}
+                    lineNumberWidth={lineNumberWidth}
+                    count={item.count}
+                    onExpand={() => addExpandedRange(item.start, item.end)}
+                    onExpandChunk={() => addExpandedRange(item.start, item.start + expandPreviewCount - 1)}
+                    expandLabel={t.expandSection}
+                    expandChunkLabel={t.expandLines.replace('{count}', expandPreviewCount.toLocaleString())}
+                  />
+                );
             }
             const diffIdx = diffIndexMap.get(item.lineIndex);
             return (
@@ -400,17 +481,46 @@ export function SideBySideView({
   );
 }
 
-function CollapsedLine({ lineNumberWidth, count }: { lineNumberWidth: number; count: number }) {
+function CollapsedLine({
+  lineNumberWidth,
+  count,
+  onExpand,
+  onExpandChunk,
+  expandLabel,
+  expandChunkLabel,
+}: {
+  lineNumberWidth: number;
+  count: number;
+  onExpand: () => void;
+  onExpandChunk: () => void;
+  expandLabel: string;
+  expandChunkLabel: string;
+}) {
   const { t } = useLanguage();
   return (
-    <div className="flex bg-[var(--color-bg-tertiary)]/30 text-[var(--color-text-muted)]">
+    <div className="flex items-center bg-[var(--color-bg-tertiary)]/30 text-[var(--color-text-muted)]">
       <span
         className="flex-shrink-0 px-2 py-0.5 text-right bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] select-none"
         style={{ width: lineNumberWidth }}
       >
-        …
-      </span>
-      <pre className="flex-1 px-3 py-0.5 whitespace-pre overflow-hidden">
+        ...</span>
+      <div className="flex flex-shrink-0 items-center gap-2 px-2">
+        <button
+          type="button"
+          onClick={onExpand}
+          className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-xs font-semibold text-white shadow-sm hover:bg-[var(--color-accent-hover)]"
+        >
+          {expandLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onExpandChunk}
+          className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+        >
+          {expandChunkLabel}
+        </button>
+      </div>
+      <pre className="flex-1 px-3 py-0.5 whitespace-pre overflow-hidden text-[var(--color-text-secondary)]">
         {t.collapsedLines.replace('{count}', count.toLocaleString())}
       </pre>
     </div>
