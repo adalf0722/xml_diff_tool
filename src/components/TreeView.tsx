@@ -3,8 +3,9 @@
  * Shows XML structure as collapsible tree with diff highlighting
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { forwardRef, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Maximize2, Minimize2 } from 'lucide-react';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { ParseResult, XMLNode } from '../core/xml-parser';
 import type { DiffResult, DiffType } from '../core/xml-diff';
 import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS, getChangedPaths, countNodesByType } from '../core/xml-tree';
@@ -33,6 +34,19 @@ interface TreeViewProps {
   }) => void;
 }
 
+interface FlatTreeItem {
+  node: TreeNode;
+  depth: number;
+}
+
+const TreeList = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  (props, ref) => (
+    <div ref={ref} {...props} className={`p-2 min-w-max ${props.className || ''}`} />
+  )
+);
+
+TreeList.displayName = 'TreeList';
+
 export function TreeView({
   diffResults,
   activeFilters,
@@ -48,8 +62,10 @@ export function TreeView({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [diffOnlyOverride, setDiffOnlyOverride] = useState<boolean | null>(null);
   const showDiffOnly = diffOnlyOverride ?? isLargeFileMode;
-  const leftPanelRef = useRef<HTMLDivElement>(null);
-  const rightPanelRef = useRef<HTMLDivElement>(null);
+  const leftVirtuosoRef = useRef<VirtuosoHandle>(null);
+  const rightVirtuosoRef = useRef<VirtuosoHandle>(null);
+  const leftScrollerRef = useRef<HTMLElement | null>(null);
+  const rightScrollerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isLargeFileMode) {
@@ -91,9 +107,22 @@ export function TreeView({
     return { ...counts, total };
   }, [treeA]);
 
+  const flatTreeA = useMemo(() => flattenTree(treeA, expandedNodes), [treeA, expandedNodes]);
+  const flatTreeB = useMemo(() => flattenTree(treeB, expandedNodes), [treeB, expandedNodes]);
+  const keyToIndexA = useMemo(() => buildKeyIndex(flatTreeA), [flatTreeA]);
+  const keyToIndexB = useMemo(() => buildKeyIndex(flatTreeB), [flatTreeB]);
+
   useEffect(() => {
     onSummaryChange?.(treeSummary);
   }, [onSummaryChange, treeSummary]);
+
+  const setLeftScroller = useCallback((element: HTMLElement | Window | null) => {
+    leftScrollerRef.current = element instanceof HTMLElement ? element : null;
+  }, []);
+
+  const setRightScroller = useCallback((element: HTMLElement | Window | null) => {
+    rightScrollerRef.current = element instanceof HTMLElement ? element : null;
+  }, []);
 
   // Build navigable index map:
   // - Prefer grouping by key attributes
@@ -190,27 +219,39 @@ export function TreeView({
 
       return changed ? next : prev;
     });
+  }, [activeDiffIndex, indexToKey, keyPathMapA, keyPathMapB]);
+
+  useEffect(() => {
+    if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
+    const key = indexToKey.get(activeDiffIndex);
+    if (!key) return;
+
+    const leftIndex = keyToIndexA.get(key);
+    const rightIndex = keyToIndexB.get(key);
+
+    if (leftIndex !== undefined) {
+      leftVirtuosoRef.current?.scrollToIndex({ index: leftIndex, align: 'center', behavior: 'smooth' });
+    }
+    if (rightIndex !== undefined) {
+      rightVirtuosoRef.current?.scrollToIndex({ index: rightIndex, align: 'center', behavior: 'smooth' });
+    }
 
     const selector = `[data-diff-id="diff-${activeDiffIndex}"]`;
     const timer = setTimeout(() => {
-      requestAnimationFrame(() => {
-        const targets = [
-          leftPanelRef.current?.querySelector(selector),
-          rightPanelRef.current?.querySelector(selector),
-        ].filter(Boolean) as HTMLElement[];
-
-        targets.forEach(element => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          element.classList.add('diff-highlight-pulse');
+      [leftScrollerRef.current, rightScrollerRef.current].forEach(container => {
+        if (!container) return;
+        const targets = container.querySelectorAll(selector);
+        targets.forEach(target => {
+          target.classList.add('diff-highlight-pulse');
           setTimeout(() => {
-            element.classList.remove('diff-highlight-pulse');
+            target.classList.remove('diff-highlight-pulse');
           }, 1000);
         });
       });
-    }, 0);
+    }, 120);
 
     return () => clearTimeout(timer);
-  }, [activeDiffIndex, indexToKey, keyPathMapA, keyPathMapB]);
+  }, [activeDiffIndex, indexToKey, keyToIndexA, keyToIndexB]);
 
   // Report navigable count to App (for correct counter + bounds)
   useEffect(() => {
@@ -218,7 +259,7 @@ export function TreeView({
   }, [diffIndexMap.size, onNavCountChange]);
 
   // Initialize expanded state (default collapsed, only roots open)
-  useMemo(() => {
+  useEffect(() => {
     if (treeA || treeB) {
       const initial = new Set<string>();
       if (treeA) initial.add(treeA.id);
@@ -367,10 +408,15 @@ export function TreeView({
               {t.originalXml}
             </h4>
           </div>
-          <div className="flex-1 overflow-auto p-2" ref={leftPanelRef}>
-            {treeA && (
-              <TreeNodeComponent
-                node={treeA}
+          <Virtuoso
+            ref={leftVirtuosoRef}
+            scrollerRef={setLeftScroller}
+            data={flatTreeA}
+            className="flex-1"
+            style={{ height: '100%' }}
+            itemContent={(_index: number, item: FlatTreeItem) => (
+              <TreeRow
+                item={item}
                 expandedNodes={expandedNodes}
                 onToggle={handleToggle}
                 activeFilters={activeFilters}
@@ -378,7 +424,8 @@ export function TreeView({
                 navMode={navMode}
               />
             )}
-          </div>
+            components={{ List: TreeList }}
+          />
         </div>
 
         {/* Right tree - XML B */}
@@ -388,10 +435,15 @@ export function TreeView({
               {t.newXml}
             </h4>
           </div>
-          <div className="flex-1 overflow-auto p-2" ref={rightPanelRef}>
-            {treeB && (
-              <TreeNodeComponent
-                node={treeB}
+          <Virtuoso
+            ref={rightVirtuosoRef}
+            scrollerRef={setRightScroller}
+            data={flatTreeB}
+            className="flex-1"
+            style={{ height: '100%' }}
+            itemContent={(_index: number, item: FlatTreeItem) => (
+              <TreeRow
+                item={item}
                 expandedNodes={expandedNodes}
                 onToggle={handleToggle}
                 activeFilters={activeFilters}
@@ -399,11 +451,38 @@ export function TreeView({
                 navMode={navMode}
               />
             )}
-          </div>
+            components={{ List: TreeList }}
+          />
         </div>
       </div>
     </div>
   );
+}
+
+function flattenTree(root: TreeNode | null, expandedNodes: Set<string>): FlatTreeItem[] {
+  if (!root) return [];
+  const items: FlatTreeItem[] = [];
+
+  const traverse = (node: TreeNode, depth: number) => {
+    items.push({ node, depth });
+    if (!expandedNodes.has(node.id)) return;
+    for (const child of node.children) {
+      traverse(child, depth + 1);
+    }
+  };
+
+  traverse(root, 0);
+  return items;
+}
+
+function buildKeyIndex(items: FlatTreeItem[]): Map<string, number> {
+  const map = new Map<string, number>();
+  items.forEach((item, index) => {
+    if (!map.has(item.node.stableKey)) {
+      map.set(item.node.stableKey, index);
+    }
+  });
+  return map;
 }
 
 function filterXmlTree(node: XMLNode, allowedPaths: Set<string>): XMLNode | null {
@@ -439,28 +518,28 @@ function buildKeyPathMap(tree: TreeNode | null): Map<string, string[]> {
   return map;
 }
 
-interface TreeNodeComponentProps {
-  node: TreeNode;
+interface TreeRowProps {
+  item: FlatTreeItem;
   expandedNodes: Set<string>;
   onToggle: (nodeId: string) => void;
   activeFilters: Set<DiffType>;
   diffIndexMap: Map<string, number>;
   navMode: 'group' | 'node';
-  depth?: number;
 }
 
-function TreeNodeComponent({
-  node,
+function TreeRow({
+  item,
   expandedNodes,
   onToggle,
   activeFilters,
   diffIndexMap,
   navMode,
-  depth = 0,
-}: TreeNodeComponentProps) {
+}: TreeRowProps) {
   const { t } = useLanguage();
+  const { node, depth } = item;
   const isExpanded = expandedNodes.has(node.id);
   const hasChildren = node.children.length > 0;
+  const canToggle = hasChildren && !node.isPlaceholder;
   
   // Only show highlighting if the filter is active
   const shouldHighlight = node.diffType && node.diffType !== 'unchanged' && activeFilters.has(node.diffType);
@@ -474,6 +553,7 @@ function TreeNodeComponent({
     : (isDiffNode ? node.stableKey : null);
   const diffIdx = navKey ? diffIndexMap.get(navKey) : undefined;
   const navId = diffIdx !== undefined ? `diff-${diffIdx}` : undefined;
+  const indentStyle = { marginLeft: depth > 0 ? depth * 16 : 0 };
 
   // Render placeholder node with special styling
   if (node.isPlaceholder) {
@@ -482,7 +562,7 @@ function TreeNodeComponent({
       : 'border-red-500/40';
     
     return (
-      <div style={{ marginLeft: depth > 0 ? 16 : 0 }}>
+      <div style={indentStyle}>
         <div
           className={`flex items-center gap-1 px-2 py-1 rounded-md border border-dashed ${placeholderDiffClass} bg-[var(--color-bg-tertiary)] opacity-60`}
           data-diff-id={navId}
@@ -520,10 +600,10 @@ function TreeNodeComponent({
   }
 
   return (
-    <div style={{ marginLeft: depth > 0 ? 16 : 0 }}>
+    <div style={indentStyle}>
       <div
         className={`flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer hover:bg-[var(--color-bg-tertiary)] ${diffClass}`}
-        onClick={() => hasChildren && onToggle(node.id)}
+        onClick={() => canToggle && onToggle(node.id)}
         data-diff-id={navId}
       >
         {/* Expand/Collapse icon */}
@@ -576,24 +656,6 @@ function TreeNodeComponent({
           } />
         )}
       </div>
-
-      {/* Children */}
-      {isExpanded && hasChildren && (
-        <div>
-          {node.children.map((child, index) => (
-            <TreeNodeComponent
-              key={`${child.id}-${index}`}
-              node={child}
-              expandedNodes={expandedNodes}
-              onToggle={onToggle}
-              activeFilters={activeFilters}
-              diffIndexMap={diffIndexMap}
-              navMode={navMode}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
