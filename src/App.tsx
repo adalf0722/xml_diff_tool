@@ -99,6 +99,14 @@ function AppContent() {
   const [currentDiffIndex, setCurrentDiffIndex] = useState(0);
   const diffViewRef = useRef<HTMLDivElement>(null);
   const [treeNavCount, setTreeNavCount] = useState(0);
+  const [treeScope, setTreeScope] = useState<'full' | 'diff-only'>('full');
+  const [treeSummary, setTreeSummary] = useState<{
+    added: number;
+    removed: number;
+    modified: number;
+    unchanged: number;
+    total: number;
+  } | null>(null);
 
   // Batch comparison state
   const [batchState, setBatchState] = useState<'idle' | 'processing' | 'done'>('idle');
@@ -680,6 +688,8 @@ function AppContent() {
               activeView={activeView}
               lineLevelStats={lineLevelStats}
               inlineStats={inlineStats}
+              treeScope={activeView === 'tree' ? treeScope : undefined}
+              treeSummary={activeView === 'tree' ? treeSummary : undefined}
             />
         )}
 
@@ -714,6 +724,8 @@ function AppContent() {
                 activeFilters={activeFilters}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
+                collapseUnchanged={isLargeFileMode}
+                contextLines={3}
               />
             )}
             {activeView === 'inline' && (
@@ -726,6 +738,8 @@ function AppContent() {
                 activeFilters={activeFilters}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
+                collapseUnchanged={isLargeFileMode}
+                contextLines={3}
               />
             )}
             {activeView === 'tree' && (
@@ -737,6 +751,8 @@ function AppContent() {
                 isLargeFileMode={isLargeFileMode}
                 activeDiffIndex={currentDiffIndex}
                 onNavCountChange={setTreeNavCount}
+                onScopeChange={setTreeScope}
+                onSummaryChange={setTreeSummary}
               />
             )}
           </div>

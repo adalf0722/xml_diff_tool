@@ -20,6 +20,8 @@ interface InlineViewProps {
   progressiveRender?: boolean;
   initialRenderCount?: number;
   renderBatchSize?: number;
+  collapseUnchanged?: boolean;
+  contextLines?: number;
 }
 
 export function InlineView({
@@ -33,6 +35,8 @@ export function InlineView({
   progressiveRender = false,
   initialRenderCount = 400,
   renderBatchSize = 400,
+  collapseUnchanged = false,
+  contextLines = 3,
 }: InlineViewProps) {
   const { t } = useLanguage();
   // Format and generate line diff
@@ -59,7 +63,81 @@ export function InlineView({
 
   const lineNumberWidth = String(maxLineNumber).length * 10 + 16;
 
-  const totalLines = lineDiff.length;
+  const { groupedLines, diffIndexMap } = useMemo(() => {
+    let diffIdx = 0;
+    const indexMap = new Map<number, number>();
+    
+    lineDiff.forEach((line, idx) => {
+      if (line.type !== 'context') {
+        indexMap.set(idx, diffIdx);
+        diffIdx++;
+      }
+    });
+    
+    const lines = lineDiff.map((line, index) => ({
+      ...line,
+      isFirstInGroup: index === 0 || lineDiff[index - 1].type !== line.type,
+      isLastInGroup: index === lineDiff.length - 1 || lineDiff[index + 1].type !== line.type,
+    }));
+    
+    return { groupedLines: lines, diffIndexMap: indexMap };
+  }, [lineDiff]);
+
+  const displayItems = useMemo(() => {
+    if (!collapseUnchanged || groupedLines.length === 0) {
+      return groupedLines.map((line, lineIndex) => ({
+        type: 'line' as const,
+        line,
+        lineIndex,
+      }));
+    }
+
+    const total = groupedLines.length;
+    const showFlags = new Array<boolean>(total).fill(false);
+    const diffIndices: number[] = [];
+
+    groupedLines.forEach((line, index) => {
+      if (line.type !== 'context') {
+        diffIndices.push(index);
+      }
+    });
+
+    if (diffIndices.length === 0) {
+      const visibleCount = Math.min(contextLines, total);
+      for (let i = 0; i < visibleCount; i += 1) {
+        showFlags[i] = true;
+      }
+    } else {
+      diffIndices.forEach(index => {
+        const start = Math.max(0, index - contextLines);
+        const end = Math.min(total - 1, index + contextLines);
+        for (let i = start; i <= end; i += 1) {
+          showFlags[i] = true;
+        }
+      });
+    }
+
+    const items: Array<
+      | { type: 'line'; line: UnifiedDiffLine & { isFirstInGroup: boolean; isLastInGroup: boolean }; lineIndex: number }
+      | { type: 'collapse'; start: number; end: number; count: number }
+    > = [];
+    let i = 0;
+    while (i < total) {
+      if (showFlags[i]) {
+        items.push({ type: 'line', line: groupedLines[i], lineIndex: i });
+        i += 1;
+        continue;
+      }
+      const start = i;
+      while (i < total && !showFlags[i]) i += 1;
+      const end = i - 1;
+      items.push({ type: 'collapse', start, end, count: end - start + 1 });
+    }
+
+    return items;
+  }, [collapseUnchanged, contextLines, groupedLines]);
+
+  const totalLines = displayItems.length;
   const [visibleCount, setVisibleCount] = useState(() => {
     if (!progressiveRender) return totalLines;
     return Math.min(initialRenderCount, totalLines);
@@ -98,26 +176,9 @@ export function InlineView({
     };
   }, [progressiveRender, totalLines, initialRenderCount, renderBatchSize]);
 
-  // Group consecutive changes for context and assign navigation IDs
-  const { groupedLines, diffIndexMap } = useMemo(() => {
-    let diffIdx = 0;
-    const indexMap = new Map<number, number>();
-    
-    lineDiff.forEach((line, idx) => {
-      if (line.type !== 'context') {
-        indexMap.set(idx, diffIdx);
-        diffIdx++;
-      }
-    });
-    
-    const lines = lineDiff.map((line, index) => ({
-      ...line,
-      isFirstInGroup: index === 0 || lineDiff[index - 1].type !== line.type,
-      isLastInGroup: index === lineDiff.length - 1 || lineDiff[index + 1].type !== line.type,
-    }));
-    
-    return { groupedLines: lines, diffIndexMap: indexMap };
-  }, [lineDiff]);
+  const visibleItems = useMemo(() => {
+    return displayItems.slice(0, visibleCount);
+  }, [displayItems, visibleCount]);
 
   if (lineDiff.length === 0) {
     return (
@@ -126,10 +187,6 @@ export function InlineView({
       </div>
     );
   }
-
-  const visibleLines = useMemo(() => {
-    return groupedLines.slice(0, visibleCount);
-  }, [groupedLines, visibleCount]);
 
   return (
     <div className="relative h-full overflow-auto font-mono text-sm">
@@ -148,12 +205,21 @@ export function InlineView({
         </div>
       )}
       <div className="min-w-max">
-        {visibleLines.map((line, index) => {
-          const diffIdx = diffIndexMap.get(index);
+        {visibleItems.map((item) => {
+          if (item.type === 'collapse') {
+            return (
+              <CollapsedInlineLine
+                key={`collapse-${item.start}-${item.end}`}
+                lineNumberWidth={lineNumberWidth}
+                count={item.count}
+              />
+            );
+          }
+          const diffIdx = diffIndexMap.get(item.lineIndex);
           return (
             <InlineDiffLine
-              key={index}
-              line={line}
+              key={`line-${item.lineIndex}`}
+              line={item.line}
               lineNumberWidth={lineNumberWidth}
               activeFilters={activeFilters}
               disableSyntaxHighlight={disableSyntaxHighlight}
@@ -162,6 +228,32 @@ export function InlineView({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function CollapsedInlineLine({ lineNumberWidth, count }: { lineNumberWidth: number; count: number }) {
+  const { t } = useLanguage();
+  return (
+    <div className="flex bg-[var(--color-bg-tertiary)]/30 text-[var(--color-text-muted)]">
+      <span
+        className="flex-shrink-0 px-1 py-0.5 text-right bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] select-none"
+        style={{ width: lineNumberWidth }}
+      >
+        …
+      </span>
+      <span
+        className="flex-shrink-0 px-1 py-0.5 text-right bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] select-none"
+        style={{ width: lineNumberWidth }}
+      >
+        …
+      </span>
+      <span className="flex-shrink-0 w-6 px-1 py-0.5 text-center font-bold">
+        …
+      </span>
+      <pre className="flex-1 px-2 py-0.5 whitespace-pre overflow-hidden">
+        {t.collapsedLines.replace('{count}', count.toLocaleString())}
+      </pre>
     </div>
   );
 }

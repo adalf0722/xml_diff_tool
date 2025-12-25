@@ -30,6 +30,8 @@ interface DiffSummaryProps {
   activeView: ViewMode;
   lineLevelStats: LineLevelStats;
   inlineStats?: { added: number; removed: number; unchanged: number; total: number } | null;
+  treeScope?: 'full' | 'diff-only';
+  treeSummary?: { added: number; removed: number; modified: number; unchanged: number; total: number } | null;
 }
 
 export function DiffSummary({
@@ -42,6 +44,8 @@ export function DiffSummary({
   activeView,
   lineLevelStats,
   inlineStats: inlineStatsProp,
+  treeScope,
+  treeSummary,
 }: DiffSummaryProps) {
   const { t } = useLanguage();
   const nodeSummary = useMemo(() => getDiffSummary(diffResults), [diffResults]);
@@ -74,7 +78,7 @@ export function DiffSummary({
   const inlineStatsToUse = inlineStatsProp || inlineStats;
   const summary =
     activeView === 'tree'
-      ? nodeSummary
+      ? (treeSummary ?? nodeSummary)
       : activeView === 'inline' && inlineStatsToUse
         ? { added: inlineStatsToUse.added, removed: inlineStatsToUse.removed, modified: 0, unchanged: inlineStatsToUse.unchanged, total: inlineStatsToUse.total }
         : { added: lineLevelStats.added, removed: lineLevelStats.removed, modified: lineLevelStats.modified, unchanged: lineLevelStats.unchanged, total: lineLevelStats.total };
@@ -99,6 +103,13 @@ export function DiffSummary({
 
   // Unit label for stats
   const unitLabel = isLineBasedView ? t.statsLines : t.statsNodes;
+  const treeScopeLabel =
+    activeView === 'tree' && treeScope
+      ? t.treeSummaryScopeLabel.replace(
+          '{scope}',
+          treeScope === 'diff-only' ? t.treeScopeDiffOnly : t.treeScopeFull
+        )
+      : null;
 
   return (
     <div className="flex items-center gap-4 px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
@@ -108,6 +119,11 @@ export function DiffSummary({
           ({unitLabel})
         </span>
       </span>
+      {treeScopeLabel && (
+        <span className="text-xs text-[var(--color-text-muted)] px-2 py-0.5 rounded border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]">
+          {treeScopeLabel}
+        </span>
+      )}
       
       <div className="flex items-center gap-2">
         <FilterBadge

@@ -48,6 +48,9 @@ export interface Translations {
   unchanged: string;
   noDifferences: string;
   enterXmlToCompare: string;
+  treeSummaryScopeLabel: string;
+  treeScopeFull: string;
+  treeScopeDiffOnly: string;
 
   // Side by Side View
   originalXml: string;
@@ -147,6 +150,7 @@ export interface Translations {
   treeExpandStateExpanded: string;
   treeExpandStatePartial: string;
   treeExpandStateLabel: string;
+  collapsedLines: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -193,6 +197,9 @@ export const translations: Record<Language, Translations> = {
     unchanged: 'Unchanged',
     noDifferences: '✓ The two XML documents are identical',
     enterXmlToCompare: 'Enter XML content to compare',
+    treeSummaryScopeLabel: 'Scope: {scope}',
+    treeScopeFull: 'Full tree',
+    treeScopeDiffOnly: 'Diff-only tree',
 
     // Side by Side View
     originalXml: 'Original XML (A)',
@@ -292,6 +299,7 @@ export const translations: Record<Language, Translations> = {
     treeExpandStateExpanded: 'Expanded',
     treeExpandStatePartial: 'Partial',
     treeExpandStateLabel: 'Tree state: {state}',
+    collapsedLines: 'Collapsed {count} lines',
   },
 
   'zh-TW': {
@@ -337,6 +345,9 @@ export const translations: Record<Language, Translations> = {
     unchanged: '未變',
     noDifferences: '✓ 兩個 XML 文件完全相同',
     enterXmlToCompare: '請輸入 XML 內容進行比較',
+    treeSummaryScopeLabel: '範圍：{scope}',
+    treeScopeFull: '完整樹',
+    treeScopeDiffOnly: '僅差異樹',
 
     // Side by Side View
     originalXml: '原始 XML (A)',
@@ -436,6 +447,7 @@ export const translations: Record<Language, Translations> = {
     treeExpandStateExpanded: '已展開',
     treeExpandStatePartial: '部分展開',
     treeExpandStateLabel: '樹狀狀態：{state}',
+    collapsedLines: '已收合 {count} 行',
   },
 
   'zh-CN': {
@@ -481,6 +493,9 @@ export const translations: Record<Language, Translations> = {
     unchanged: '未变',
     noDifferences: '✓ 两个 XML 文档完全相同',
     enterXmlToCompare: '请输入 XML 内容进行比较',
+    treeSummaryScopeLabel: '范围：{scope}',
+    treeScopeFull: '完整树',
+    treeScopeDiffOnly: '仅差异树',
 
     // Side by Side View
     originalXml: '原始 XML (A)',
@@ -580,6 +595,7 @@ export const translations: Record<Language, Translations> = {
     treeExpandStateExpanded: '已展开',
     treeExpandStatePartial: '部分展开',
     treeExpandStateLabel: '树状状态：{state}',
+    collapsedLines: '已折叠 {count} 行',
   },
 };
 

@@ -133,6 +133,12 @@ function buildTreeNodeWithPlaceholders(
   let diffType: DiffType = 'unchanged';
   if (diffResult) {
     diffType = diffResult.type;
+    if (diffType === 'added' && side === 'old') {
+      diffType = 'unchanged';
+    }
+    if (diffType === 'removed' && side === 'new') {
+      diffType = 'unchanged';
+    }
   }
 
   const treeNode: TreeNode = {

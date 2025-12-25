@@ -7,7 +7,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Maximize2, Minimize2 } from 'lucide-react';
 import type { ParseResult, XMLNode } from '../core/xml-parser';
 import type { DiffResult, DiffType } from '../core/xml-diff';
-import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS, getChangedPaths } from '../core/xml-tree';
+import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS, getChangedPaths, countNodesByType } from '../core/xml-tree';
 import type { TreeNode } from '../core/xml-tree';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -23,6 +23,14 @@ interface TreeViewProps {
   isLargeFileMode?: boolean;
   activeDiffIndex?: number;
   onNavCountChange?: (count: number) => void;
+  onScopeChange?: (scope: 'full' | 'diff-only') => void;
+  onSummaryChange?: (summary: {
+    added: number;
+    removed: number;
+    modified: number;
+    unchanged: number;
+    total: number;
+  }) => void;
 }
 
 export function TreeView({
@@ -33,6 +41,8 @@ export function TreeView({
   isLargeFileMode = false,
   activeDiffIndex,
   onNavCountChange,
+  onScopeChange,
+  onSummaryChange,
 }: TreeViewProps) {
   const { t } = useLanguage();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -46,6 +56,10 @@ export function TreeView({
       setDiffOnlyOverride(null);
     }
   }, [isLargeFileMode]);
+
+  useEffect(() => {
+    onScopeChange?.(showDiffOnly ? 'diff-only' : 'full');
+  }, [onScopeChange, showDiffOnly]);
 
   // Parse XML and build paired diff trees (include placeholders)
   const { treeA, treeB } = useMemo(() => {
@@ -70,6 +84,16 @@ export function TreeView({
     const { treeA, treeB } = buildPairedDiffTrees(filteredA, filteredB, diffResults);
     return { treeA, treeB };
   }, [diffResults, parseResultA, parseResultB, showDiffOnly]);
+
+  const treeSummary = useMemo(() => {
+    const counts = countNodesByType(treeA);
+    const total = counts.added + counts.removed + counts.modified + counts.unchanged;
+    return { ...counts, total };
+  }, [treeA]);
+
+  useEffect(() => {
+    onSummaryChange?.(treeSummary);
+  }, [onSummaryChange, treeSummary]);
 
   // Build navigable index map:
   // - Prefer grouping by key attributes

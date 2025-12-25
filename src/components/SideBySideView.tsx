@@ -23,6 +23,8 @@ interface SideBySideViewProps {
   progressiveRender?: boolean;
   initialRenderCount?: number;
   renderBatchSize?: number;
+  collapseUnchanged?: boolean;
+  contextLines?: number;
 }
 
 type LineDiffType = 'added' | 'removed' | 'modified' | 'unchanged';
@@ -43,6 +45,8 @@ export function SideBySideView({
   progressiveRender = false,
   initialRenderCount = 400,
   renderBatchSize = 400,
+  collapseUnchanged = false,
+  contextLines = 3,
 }: SideBySideViewProps) {
   const { t } = useLanguage();
   const leftPanelRef = useRef<HTMLDivElement>(null);
@@ -80,7 +84,63 @@ export function SideBySideView({
     return { alignedLines: lines, diffIndexMap: indexMap };
   }, [formattedA, formattedB, lineDiffOps]);
 
-  const totalLines = alignedLines.length;
+  const displayItems = useMemo(() => {
+    if (!collapseUnchanged || alignedLines.length === 0) {
+      return alignedLines.map((line, lineIndex) => ({
+        type: 'line' as const,
+        line,
+        lineIndex,
+      }));
+    }
+
+    const total = alignedLines.length;
+    const showFlags = new Array<boolean>(total).fill(false);
+    const diffIndices: number[] = [];
+
+    alignedLines.forEach((line, index) => {
+      const leftType = line.left?.type;
+      const rightType = line.right?.type;
+      if ((leftType && leftType !== 'unchanged') || (rightType && rightType !== 'unchanged')) {
+        diffIndices.push(index);
+      }
+    });
+
+    if (diffIndices.length === 0) {
+      const visibleCount = Math.min(contextLines, total);
+      for (let i = 0; i < visibleCount; i += 1) {
+        showFlags[i] = true;
+      }
+    } else {
+      diffIndices.forEach(index => {
+        const start = Math.max(0, index - contextLines);
+        const end = Math.min(total - 1, index + contextLines);
+        for (let i = start; i <= end; i += 1) {
+          showFlags[i] = true;
+        }
+      });
+    }
+
+    const items: Array<
+      | { type: 'line'; line: AlignedLine; lineIndex: number }
+      | { type: 'collapse'; start: number; end: number; count: number }
+    > = [];
+    let i = 0;
+    while (i < total) {
+      if (showFlags[i]) {
+        items.push({ type: 'line', line: alignedLines[i], lineIndex: i });
+        i += 1;
+        continue;
+      }
+      const start = i;
+      while (i < total && !showFlags[i]) i += 1;
+      const end = i - 1;
+      items.push({ type: 'collapse', start, end, count: end - start + 1 });
+    }
+
+    return items;
+  }, [alignedLines, collapseUnchanged, contextLines]);
+
+  const totalLines = displayItems.length;
   const [visibleCount, setVisibleCount] = useState(() => {
     if (!progressiveRender) return totalLines;
     return Math.min(initialRenderCount, totalLines);
@@ -119,9 +179,9 @@ export function SideBySideView({
     };
   }, [progressiveRender, totalLines, initialRenderCount, renderBatchSize]);
 
-  const visibleLines = useMemo(() => {
-    return alignedLines.slice(0, visibleCount);
-  }, [alignedLines, visibleCount]);
+  const visibleItems = useMemo(() => {
+    return displayItems.slice(0, visibleCount);
+  }, [displayItems, visibleCount]);
 
   // Synchronized scrolling
   const handleScroll = useCallback((source: 'left' | 'right') => {
@@ -192,16 +252,25 @@ export function SideBySideView({
           className="flex-1 overflow-auto font-mono text-sm"
         >
           <div className="min-w-max">
-            {visibleLines.map((line, index) => {
-              const diffIdx = diffIndexMap.get(index);
+            {visibleItems.map((item) => {
+              if (item.type === 'collapse') {
+                return (
+                  <CollapsedLine
+                    key={`collapse-${item.start}-${item.end}`}
+                    lineNumberWidth={lineNumberWidth}
+                    count={item.count}
+                  />
+                );
+              }
+              const diffIdx = diffIndexMap.get(item.lineIndex);
               return (
                 <DiffLine
-                  key={index}
-                  lineNumber={line.left?.lineNumber || null}
-                  content={line.left?.content || ''}
+                  key={`line-${item.lineIndex}`}
+                  lineNumber={item.line.left?.lineNumber || null}
+                  content={item.line.left?.content || ''}
                   lineNumberWidth={lineNumberWidth}
-                  diffType={line.left?.type || null}
-                  isEmpty={!line.left}
+                  diffType={item.line.left?.type || null}
+                  isEmpty={!item.line.left}
                   activeFilters={activeFilters}
                   disableSyntaxHighlight={disableSyntaxHighlight}
                   diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
@@ -224,16 +293,25 @@ export function SideBySideView({
           className="flex-1 overflow-auto font-mono text-sm"
         >
           <div className="min-w-max">
-            {visibleLines.map((line, index) => {
-              const diffIdx = diffIndexMap.get(index);
+            {visibleItems.map((item) => {
+              if (item.type === 'collapse') {
+                return (
+                  <CollapsedLine
+                    key={`collapse-${item.start}-${item.end}`}
+                    lineNumberWidth={lineNumberWidth}
+                    count={item.count}
+                  />
+                );
+              }
+              const diffIdx = diffIndexMap.get(item.lineIndex);
               return (
                 <DiffLine
-                  key={index}
-                  lineNumber={line.right?.lineNumber || null}
-                  content={line.right?.content || ''}
+                  key={`line-${item.lineIndex}`}
+                  lineNumber={item.line.right?.lineNumber || null}
+                  content={item.line.right?.content || ''}
                   lineNumberWidth={lineNumberWidth}
-                  diffType={line.right?.type || null}
-                  isEmpty={!line.right}
+                  diffType={item.line.right?.type || null}
+                  isEmpty={!item.line.right}
                   activeFilters={activeFilters}
                   disableSyntaxHighlight={disableSyntaxHighlight}
                   diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
@@ -244,6 +322,23 @@ export function SideBySideView({
         </div>
       </div>
       </div>
+    </div>
+  );
+}
+
+function CollapsedLine({ lineNumberWidth, count }: { lineNumberWidth: number; count: number }) {
+  const { t } = useLanguage();
+  return (
+    <div className="flex bg-[var(--color-bg-tertiary)]/30 text-[var(--color-text-muted)]">
+      <span
+        className="flex-shrink-0 px-2 py-0.5 text-right bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] select-none"
+        style={{ width: lineNumberWidth }}
+      >
+        …
+      </span>
+      <pre className="flex-1 px-3 py-0.5 whitespace-pre overflow-hidden">
+        {t.collapsedLines.replace('{count}', count.toLocaleString())}
+      </pre>
     </div>
   );
 }
