@@ -158,9 +158,9 @@ export function DiffSummary({
       />
 
       {/* Unchanged count - display only, not a filter */}
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border-[var(--color-border)]">
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border-[var(--color-border)] text-[10px] opacity-60 lg:text-xs lg:opacity-100">
         <Equal size={14} />
-        <span className="text-xs font-medium">
+        <span className="font-medium">
           {t.unchanged}: {summary.unchanged}
         </span>
       </div>

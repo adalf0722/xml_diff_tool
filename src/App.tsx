@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { ArrowRightLeft, AlertCircle } from 'lucide-react';
+import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
@@ -687,12 +687,15 @@ function AppContent() {
         )}
 
         {/* Toggle input panel button */}
-        <button
-          onClick={handleToggleInput}
-          className="flex items-center justify-center gap-2 py-1.5 bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-border)] transition-colors text-xs text-[var(--color-text-muted)]"
-        >
-          {showInputPanel ? t.collapseInput : t.expandInput}
-        </button>
+        <div className="relative z-10 bg-[var(--color-bg-primary)] border-y border-[var(--color-border)] shadow-sm">
+          <button
+            onClick={handleToggleInput}
+            className="w-full flex items-center justify-center gap-1 py-1 text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-primary)]"
+          >
+            {showInputPanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            <span>{showInputPanel ? t.collapseInput : t.expandInput}</span>
+          </button>
+        </div>
 
         {(!showInputPanel || isLargeFile) && (
           <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
