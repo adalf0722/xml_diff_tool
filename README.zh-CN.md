@@ -4,6 +4,12 @@
 
 这是一个纯前端的 XML 差异对比工具，可视化呈现两份 XML 文档之间的差异，所有处理都在浏览器本机完成。
 
+<div style="display: flex; gap: 12px; align-items: center;">
+  <img src="public/side.webp" alt="Side by Side view" style="width: 32%; border-radius: 8px;" />
+  <img src="public/inline.webp" alt="Inline view" style="width: 32%; border-radius: 8px;" />
+  <img src="public/tree.webp" alt="Tree view" style="width: 32%; border-radius: 8px;" />
+</div>
+
 ## 特性
 
 - 单文件与批量对比模式
