@@ -64,7 +64,7 @@ export function Header({ mode = 'single', onModeChange }: HeaderProps) {
   };
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
+    <header className="flex items-center justify-between px-6 py-4 bg-[var(--color-bg-primary)] border-b border-[var(--color-border)]">
       {/* Logo & Title */}
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
@@ -84,13 +84,13 @@ export function Header({ mode = 'single', onModeChange }: HeaderProps) {
       <div className="flex items-center gap-4">
         {/* Mode Toggle Group - Primary Actions */}
         {onModeChange && (
-          <div className="flex items-center bg-[var(--color-bg-tertiary)] rounded-lg p-1 border border-[var(--color-border)]">
+          <div className="flex items-center bg-[var(--color-bg-tertiary)]/40 rounded-lg p-1 border border-[var(--color-border)]/60">
             <button
               onClick={() => onModeChange('single')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 mode === 'single'
                   ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)]'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
               }`}
               title={t.singleMode}
             >
@@ -102,7 +102,7 @@ export function Header({ mode = 'single', onModeChange }: HeaderProps) {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 mode === 'batch'
                   ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)]'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
               }`}
               title={t.batchMode}
             >
@@ -113,7 +113,7 @@ export function Header({ mode = 'single', onModeChange }: HeaderProps) {
         )}
 
         {/* Settings Group - Preferences */}
-        <div className="flex items-center gap-1 bg-[var(--color-bg-primary)] rounded-lg px-1 py-0.5 border border-[var(--color-border)]/50">
+        <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)]/60 rounded-lg px-1 py-0.5 border border-[var(--color-border)]/40">
           {/* Theme Style Selector */}
           <div className="relative" ref={styleMenuRef}>
           <button
@@ -121,7 +121,7 @@ export function Header({ mode = 'single', onModeChange }: HeaderProps) {
             className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
             title={t.themeStyle}
           >
-            <Palette size={18} className="text-[var(--color-accent)]" />
+            <Palette size={18} className="text-[var(--color-text-muted)]" />
             <span className="text-sm text-[var(--color-text-secondary)]">
               {getStyleName(style)}
             </span>
@@ -163,7 +163,7 @@ export function Header({ mode = 'single', onModeChange }: HeaderProps) {
             className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
             title={t.language}
           >
-            <Globe size={18} className="text-[var(--color-accent)]" />
+            <Globe size={18} className="text-[var(--color-text-muted)]" />
             <span className="text-sm text-[var(--color-text-secondary)]">
               {languageNames[language]}
             </span>

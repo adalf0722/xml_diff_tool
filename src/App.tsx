@@ -694,51 +694,64 @@ function AppContent() {
           {showInputPanel ? t.collapseInput : t.expandInput}
         </button>
 
-        {!showInputPanel && (
-          <div className="px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--color-text-primary)] font-medium">{t.xmlALabel}</span>
-                <span>{summaryA.size}</span>
-                <span>{summaryA.chars.toLocaleString()} {t.characters}</span>
-                <span>{summaryA.lines.toLocaleString()} {t.lines}</span>
-                <span className={summaryA.status.className}>{summaryA.status.label}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--color-text-primary)] font-medium">{t.xmlBLabel}</span>
-                <span>{summaryB.size}</span>
-                <span>{summaryB.chars.toLocaleString()} {t.characters}</span>
-                <span>{summaryB.lines.toLocaleString()} {t.lines}</span>
-                <span className={summaryB.status.className}>{summaryB.status.label}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isLargeFile && (
-          <div className="px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[var(--color-text-primary)] font-medium">
-                {t.largeFileMode}
-              </span>
-              <span>
-                {t.largeFileModeDesc}
-              </span>
-              <div className="flex-1" />
-              {isLargeFileMode ? (
-                <button
-                  onClick={() => setLargeFileModeOverride(false)}
-                  className="px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-                >
-                  {t.showFullRendering}
-                </button>
-              ) : (
-                <button
-                  onClick={() => setLargeFileModeOverride(null)}
-                  className="px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-                >
-                  {t.enableLargeFileMode}
-                </button>
+        {(!showInputPanel || isLargeFile) && (
+          <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-2 px-4 py-2">
+              {!showInputPanel && (
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                      A
+                    </span>
+                    <span className="text-[var(--color-text-primary)] font-medium">{t.xmlALabel}</span>
+                    <span>{summaryA.size}</span>
+                    <span className="text-[var(--color-text-muted)]">|</span>
+                    <span className="hidden lg:inline">{summaryA.chars.toLocaleString()} {t.characters}</span>
+                    <span className="text-[var(--color-text-muted)]">|</span>
+                    <span>{summaryA.lines.toLocaleString()} {t.lines}</span>
+                    <span className="text-[var(--color-text-muted)]">|</span>
+                    <span className={`hidden lg:inline ${summaryA.status.className}`}>{summaryA.status.label}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      B
+                    </span>
+                    <span className="text-[var(--color-text-primary)] font-medium">{t.xmlBLabel}</span>
+                    <span>{summaryB.size}</span>
+                    <span className="text-[var(--color-text-muted)]">|</span>
+                    <span className="hidden lg:inline">{summaryB.chars.toLocaleString()} {t.characters}</span>
+                    <span className="text-[var(--color-text-muted)]">|</span>
+                    <span>{summaryB.lines.toLocaleString()} {t.lines}</span>
+                    <span className="text-[var(--color-text-muted)]">|</span>
+                    <span className={`hidden lg:inline ${summaryB.status.className}`}>{summaryB.status.label}</span>
+                  </div>
+                </div>
+              )}
+              {isLargeFile && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-500/15 text-amber-300 border border-amber-500/40"
+                    title={t.largeFileModeDesc}
+                  >
+                    <span className="hidden sm:inline">{t.largeFileMode}</span>
+                    <span className="sm:hidden">{t.largeFileModeShort}</span>
+                  </span>
+                  {isLargeFileMode ? (
+                    <button
+                      onClick={() => setLargeFileModeOverride(false)}
+                      className="ml-auto px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                    >
+                      {t.showFullRendering}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setLargeFileModeOverride(null)}
+                      className="ml-auto px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                    >
+                      {t.enableLargeFileMode}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -757,32 +770,34 @@ function AppContent() {
           </div>
         )}
 
-        {/* Diff summary with filters */}
         {!showParseError && (
-            <DiffSummary
-              diffResults={diffResults}
-              activeFilters={activeFilters}
-              onFilterToggle={handleFilterToggle}
-              onReset={handleResetFilters}
-              xmlA={displayXmlA}
-              xmlB={displayXmlB}
-              activeView={activeView}
-              lineLevelStats={lineLevelStats}
-              inlineStats={inlineStats}
-              treeScope={activeView === 'tree' ? treeScope : undefined}
-              treeSummary={activeView === 'tree' ? treeSummary : undefined}
-            />
-        )}
-
-        {/* View tabs with navigation */}
-        {!showParseError && (
-          <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-            <ViewTabs activeView={activeView} onViewChange={setActiveView} />
-            <DiffNavigation
-              currentIndex={currentDiffIndex}
-              totalDiffs={totalNavigableDiffs}
-              onNavigate={handleNavigateToDiff}
-            />
+          <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+            <div className="flex flex-col gap-2 px-4 pt-2 pb-1 md:flex-row md:items-center md:justify-between">
+              <ViewTabs activeView={activeView} onViewChange={setActiveView} compact />
+              <div className="self-end md:self-auto">
+                <DiffNavigation
+                  currentIndex={currentDiffIndex}
+                  totalDiffs={totalNavigableDiffs}
+                  onNavigate={handleNavigateToDiff}
+                />
+              </div>
+            </div>
+            <div className="px-4 pt-1 pb-4">
+              <DiffSummary
+                diffResults={diffResults}
+                activeFilters={activeFilters}
+                onFilterToggle={handleFilterToggle}
+                onReset={handleResetFilters}
+                xmlA={displayXmlA}
+                xmlB={displayXmlB}
+                activeView={activeView}
+                lineLevelStats={lineLevelStats}
+                inlineStats={inlineStats}
+                treeScope={activeView === 'tree' ? treeScope : undefined}
+                treeSummary={activeView === 'tree' ? treeSummary : undefined}
+                compact
+              />
+            </div>
           </div>
         )}
         {!showParseError && viewSwitching && (

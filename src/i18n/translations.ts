@@ -138,6 +138,7 @@ export interface Translations {
   computingLineDiff: string;
   computingDiff: string;
   largeFileMode: string;
+  largeFileModeShort: string;
   largeFileModeDesc: string;
   showFullRendering: string;
   enableLargeFileMode: string;
@@ -289,6 +290,7 @@ export const translations: Record<Language, Translations> = {
     computingLineDiff: 'Computing line diff...',
     computingDiff: 'Computing differences...',
     largeFileMode: 'Large file mode',
+    largeFileModeShort: 'Large file',
     largeFileModeDesc: 'Reduced rendering to improve performance on large files.',
     showFullRendering: 'Show full rendering',
     enableLargeFileMode: 'Enable large file mode',
@@ -439,6 +441,7 @@ export const translations: Record<Language, Translations> = {
     computingLineDiff: '計算行級差異...',
     computingDiff: '計算差異...',
     largeFileMode: '大型檔案模式',
+    largeFileModeShort: '??',
     largeFileModeDesc: '已降低渲染負擔以提升效能。',
     showFullRendering: '顯示完整渲染',
     enableLargeFileMode: '啟用大型檔案模式',
@@ -589,6 +592,7 @@ export const translations: Record<Language, Translations> = {
     computingLineDiff: '计算行级差异...',
     computingDiff: '计算差异...',
     largeFileMode: '大型文件模式',
+    largeFileModeShort: '???',
     largeFileModeDesc: '已降低渲染负担以提升性能。',
     showFullRendering: '显示完整渲染',
     enableLargeFileMode: '启用大型文件模式',

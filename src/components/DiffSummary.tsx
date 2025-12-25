@@ -32,6 +32,8 @@ interface DiffSummaryProps {
   inlineStats?: { added: number; removed: number; unchanged: number; total: number } | null;
   treeScope?: 'full' | 'diff-only';
   treeSummary?: { added: number; removed: number; modified: number; unchanged: number; total: number } | null;
+  compact?: boolean;
+  className?: string;
 }
 
 export function DiffSummary({
@@ -46,6 +48,8 @@ export function DiffSummary({
   inlineStats: inlineStatsProp,
   treeScope,
   treeSummary,
+  compact = false,
+  className = '',
 }: DiffSummaryProps) {
   const { t } = useLanguage();
   const nodeSummary = useMemo(() => getDiffSummary(diffResults), [diffResults]);
@@ -111,8 +115,143 @@ export function DiffSummary({
         )
       : null;
 
+  const containerClass = compact
+    ? 'flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4'
+    : 'flex items-center gap-4 px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]';
+
+  const filterBadges = (
+    <div className="flex flex-wrap items-center gap-2">
+      <FilterBadge
+        icon={<Plus size={14} />}
+        label={t.added}
+        count={summary.added}
+        type="added"
+        isActive={activeFilters.has('added')}
+        onToggle={() => onFilterToggle('added')}
+        colorClass="text-green-400 bg-green-500/20 border-green-500/40 hover:bg-green-500/30"
+        activeClass="ring-2 ring-green-500/50"
+      />
+
+      <FilterBadge
+        icon={<Minus size={14} />}
+        label={t.removed}
+        count={summary.removed}
+        type="removed"
+        isActive={activeFilters.has('removed')}
+        onToggle={() => onFilterToggle('removed')}
+        colorClass="text-red-400 bg-red-500/20 border-red-500/40 hover:bg-red-500/30"
+        activeClass="ring-2 ring-red-500/50"
+      />
+
+      {/* Modified badge - show for all views */}
+      <FilterBadge
+        icon={<RefreshCw size={14} />}
+        label={t.modified}
+        count={summary.modified}
+        type="modified"
+        isActive={activeFilters.has('modified')}
+        onToggle={() => onFilterToggle('modified')}
+        colorClass="text-yellow-400 bg-yellow-500/20 border-yellow-500/40 hover:bg-yellow-500/30"
+        activeClass="ring-2 ring-yellow-500/50"
+        disabled={activeView === 'inline'}
+        disabledTooltip={t.modifiedNotAvailableInline}
+      />
+
+      {/* Unchanged count - display only, not a filter */}
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border-[var(--color-border)]">
+        <Equal size={14} />
+        <span className="text-xs font-medium">
+          {t.unchanged}: {summary.unchanged}
+        </span>
+      </div>
+
+      {/* Reset button - only show when not in default state */}
+      {!isDefaultFilterState && (
+        <button
+          onClick={onReset}
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+          title={t.resetFilters}
+        >
+          <RotateCcw size={12} />
+          {t.resetFilters}
+        </button>
+      )}
+    </div>
+  );
+
+  const downloadButton = hasChanges ? (
+    <div className="relative" ref={downloadMenuRef}>
+      <button
+        onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-accent)]/20 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/30 transition-colors"
+      >
+        <Download size={14} />
+        <span className="text-xs font-medium">{t.download}</span>
+        <ChevronDown
+          size={12}
+          className={`transition-transform ${isDownloadMenuOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {isDownloadMenuOpen && (
+        <div className="absolute right-0 top-full mt-1 py-1 w-36 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg shadow-lg z-50">
+          <button
+            onClick={() => handleDownload('html')}
+            className="w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+          >
+            {t.downloadHtml}
+          </button>
+          <button
+            onClick={() => handleDownload('text')}
+            className="w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+          >
+            {t.downloadText}
+          </button>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  if (compact) {
+    return (
+      <div className={`${containerClass} ${className}`.trim()}>
+        <div className="flex flex-wrap items-center gap-3 lg:flex-1">
+          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+            {t.diffSummary}
+            <span className="ml-1 text-xs font-normal text-[var(--color-text-muted)]">
+              ({unitLabel})
+            </span>
+          </span>
+          {treeScopeLabel && (
+            <span className="text-xs text-[var(--color-text-muted)] px-2 py-0.5 rounded border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]">
+              {treeScopeLabel}
+            </span>
+          )}
+          {filterBadges}
+        </div>
+        <div className="flex flex-wrap items-center gap-3 lg:ml-auto">
+          {!hasChanges && summary.total > 0 && (
+            <span className="text-sm text-green-400 font-medium">
+              {t.noDifferences}
+            </span>
+          )}
+          {summary.total === 0 && (
+            <span className="text-sm text-[var(--color-text-muted)]">
+              {t.enterXmlToCompare}
+            </span>
+          )}
+          {downloadButton && (
+            <div className="ml-auto">
+              {downloadButton}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-4 px-4 py-3 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
+    <div className={`${containerClass} ${className}`.trim()}>
       <span className="text-sm font-medium text-[var(--color-text-primary)]">
         {t.diffSummary}
         <span className="ml-1 text-xs font-normal text-[var(--color-text-muted)]">
@@ -124,64 +263,8 @@ export function DiffSummary({
           {treeScopeLabel}
         </span>
       )}
-      
-      <div className="flex items-center gap-2">
-        <FilterBadge
-          icon={<Plus size={14} />}
-          label={t.added}
-          count={summary.added}
-          type="added"
-          isActive={activeFilters.has('added')}
-          onToggle={() => onFilterToggle('added')}
-          colorClass="text-green-400 bg-green-500/20 border-green-500/40 hover:bg-green-500/30"
-          activeClass="ring-2 ring-green-500/50"
-        />
-        
-        <FilterBadge
-          icon={<Minus size={14} />}
-          label={t.removed}
-          count={summary.removed}
-          type="removed"
-          isActive={activeFilters.has('removed')}
-          onToggle={() => onFilterToggle('removed')}
-          colorClass="text-red-400 bg-red-500/20 border-red-500/40 hover:bg-red-500/30"
-          activeClass="ring-2 ring-red-500/50"
-        />
-        
-        {/* Modified badge - show for all views */}
-        <FilterBadge
-          icon={<RefreshCw size={14} />}
-          label={t.modified}
-          count={summary.modified}
-          type="modified"
-          isActive={activeFilters.has('modified')}
-          onToggle={() => onFilterToggle('modified')}
-          colorClass="text-yellow-400 bg-yellow-500/20 border-yellow-500/40 hover:bg-yellow-500/30"
-          activeClass="ring-2 ring-yellow-500/50"
-          disabled={activeView === 'inline'}
-          disabledTooltip={t.modifiedNotAvailableInline}
-        />
 
-        {/* Unchanged count - display only, not a filter */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border-[var(--color-border)]">
-          <Equal size={14} />
-          <span className="text-xs font-medium">
-            {t.unchanged}: {summary.unchanged}
-          </span>
-        </div>
-
-        {/* Reset button - only show when not in default state */}
-        {!isDefaultFilterState && (
-          <button
-            onClick={onReset}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-            title={t.resetFilters}
-          >
-            <RotateCcw size={12} />
-            {t.resetFilters}
-          </button>
-        )}
-      </div>
+      {filterBadges}
 
       <div className="flex-1" />
 
@@ -197,39 +280,7 @@ export function DiffSummary({
         </span>
       )}
 
-      {/* Download button */}
-      {hasChanges && (
-        <div className="relative" ref={downloadMenuRef}>
-          <button
-            onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-accent)]/20 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/30 transition-colors"
-          >
-            <Download size={14} />
-            <span className="text-xs font-medium">{t.download}</span>
-            <ChevronDown
-              size={12}
-              className={`transition-transform ${isDownloadMenuOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-
-          {isDownloadMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 py-1 w-36 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg shadow-lg z-50">
-              <button
-                onClick={() => handleDownload('html')}
-                className="w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-              >
-                {t.downloadHtml}
-              </button>
-              <button
-                onClick={() => handleDownload('text')}
-                className="w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-              >
-                {t.downloadText}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {downloadButton}
     </div>
   );
 }
