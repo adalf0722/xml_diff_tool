@@ -23,6 +23,7 @@ interface TreeViewProps {
   parseResultB: ParseResult;
   isLargeFileMode?: boolean;
   activeDiffIndex?: number;
+  onJumpComplete?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
   onScopeChange?: (scope: 'full' | 'diff-only') => void;
   onSummaryChange?: (summary: {
@@ -54,6 +55,7 @@ export function TreeView({
   parseResultB,
   isLargeFileMode = false,
   activeDiffIndex,
+  onJumpComplete,
   onNavCountChange,
   onScopeChange,
   onSummaryChange,
@@ -248,10 +250,11 @@ export function TreeView({
           }, 1000);
         });
       });
+      onJumpComplete?.(activeDiffIndex);
     }, 120);
 
     return () => clearTimeout(timer);
-  }, [activeDiffIndex, indexToKey, keyToIndexA, keyToIndexB]);
+  }, [activeDiffIndex, indexToKey, keyToIndexA, keyToIndexB, onJumpComplete]);
 
   // Report navigable count to App (for correct counter + bounds)
   useEffect(() => {

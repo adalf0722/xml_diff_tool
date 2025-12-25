@@ -21,6 +21,7 @@ interface SideBySideViewProps {
   diffResults: DiffResult[];
   activeFilters: Set<DiffType>;
   activeDiffIndex?: number;
+  onJumpComplete?: (index: number) => void;
   disableSyntaxHighlight?: boolean;
   progressiveRender?: boolean;
   initialRenderCount?: number;
@@ -52,6 +53,7 @@ export function SideBySideView({
   lineDiffOps,
   activeFilters,
   activeDiffIndex,
+  onJumpComplete,
   disableSyntaxHighlight = false,
   progressiveRender = false,
   initialRenderCount = 400,
@@ -277,10 +279,11 @@ export function SideBySideView({
           }, 1000);
         });
       });
+      onJumpComplete?.(activeDiffIndex);
     }, 120);
 
     return () => clearTimeout(timer);
-  }, [activeDiffIndex, diffToDisplayIndex]);
+  }, [activeDiffIndex, diffToDisplayIndex, onJumpComplete]);
 
   const maxLineNumber = Math.max(
     ...alignedLines.map(l => l.left?.lineNumber || 0),

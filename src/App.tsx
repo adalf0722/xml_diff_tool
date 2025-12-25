@@ -21,12 +21,22 @@ import { FolderUpload } from './components/FolderUpload';
 import { BatchProcessor } from './components/BatchProcessor';
 import { BatchResultList } from './components/BatchResultList';
 import { SingleFileProcessor } from './components/SingleFileProcessor';
+import { PerfDebugPanel } from './components/PerfDebugPanel';
 import type { DiffResult, DiffType, UnifiedDiffLine } from './core/xml-diff';
 import type { ParseResult } from './core/xml-parser';
 import { useDiffWorker } from './hooks/useDiffWorker';
 import type { BatchProgress, BatchResultItem, InlineLineStats, SingleDiffProgress } from './hooks/useDiffWorker';
 import { matchFiles, type FileEntry, type MatchedFilePair } from './utils/file-matcher';
 import type { LineDiffOp } from './utils/line-diff';
+import {
+  markPerf,
+  measurePerf,
+  clearMarks,
+  clearMeasures,
+  recordValue,
+  startFpsMonitor,
+  startLongTaskObserver,
+} from './utils/perf-metrics';
 
 // Sample XML for demo
 const SAMPLE_XML_A = `<?xml version="1.0" encoding="UTF-8"?>
@@ -136,6 +146,8 @@ function AppContent() {
   const [inlineStats, setInlineStats] = useState<InlineLineStats | null>(null);
   const [inlineDiffCount, setInlineDiffCount] = useState(0);
   const [sideBySideDiffCount, setSideBySideDiffCount] = useState(0);
+  const activeViewRef = useRef<ViewMode>(activeView);
+  const pendingJumpIndexRef = useRef<number | null>(null);
   
   const hasParseError = Boolean(parseResultA.error || parseResultB.error);
   const showParseError = hasParseError && singleFileState !== 'processing';
@@ -234,6 +246,10 @@ function AppContent() {
     setActiveFilters(new Set(['added', 'removed', 'modified']));
   }, [activeView]);
 
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
+
   // Toggle a filter
   const handleFilterToggle = useCallback((type: DiffType) => {
     setActiveFilters(prev => {
@@ -256,8 +272,22 @@ function AppContent() {
   const handleNavigateToDiff = useCallback((index: number) => {
     if (index < 0 || index >= totalNavigableDiffs) return;
     
+    pendingJumpIndexRef.current = index;
+    markPerf('jump:start');
     setCurrentDiffIndex(index);
   }, [totalNavigableDiffs]);
+
+  const handleJumpComplete = useCallback((index: number) => {
+    if (pendingJumpIndexRef.current !== index) return;
+    markPerf('jump:end');
+    measurePerf('measure:jump', 'jump:start', 'jump:end', {
+      view: activeViewRef.current,
+      index,
+    });
+    clearMarks(['jump:start', 'jump:end']);
+    clearMeasures('measure:jump');
+    pendingJumpIndexRef.current = null;
+  }, []);
 
   // Swap XML content
   const handleSwap = useCallback(() => {
@@ -347,6 +377,7 @@ function AppContent() {
   const lastXmlBRef = useRef(xmlB);
   
   const runDiff = useCallback(async (inputA: string, inputB: string) => {
+    markPerf('diff:start');
     processingRef.current = true;
     setSingleFileState('processing');
     setSingleFileProgress(null);
@@ -355,6 +386,13 @@ function AppContent() {
       const result = await computeDiff(inputA, inputB, (progress) => {
         setSingleFileProgress(progress);
       });
+
+      markPerf('diff:done');
+      measurePerf('measure:diff', 'diff:start', 'diff:done', {
+        view: activeViewRef.current,
+      });
+      clearMarks(['diff:start']);
+      clearMeasures('measure:diff');
 
       setParseResultA(result.parseA);
       setParseResultB(result.parseB);
@@ -404,6 +442,39 @@ function AppContent() {
       }
     }
   }, [computeDiff, resetLineDiffState]);
+
+  useEffect(() => {
+    const stopFps = startFpsMonitor((fps) => {
+      recordValue('fps', fps, 'fps', { view: activeViewRef.current });
+    });
+    const stopLongTask = startLongTaskObserver((entry) => {
+      recordValue('longtask', entry.duration, 'ms', { view: activeViewRef.current });
+    });
+    return () => {
+      stopFps();
+      stopLongTask();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (singleFileState !== 'done') return;
+    const rafId = requestAnimationFrame(() => {
+      markPerf('view:ready');
+      measurePerf('measure:view', 'diff:done', 'view:ready', {
+        view: activeViewRef.current,
+      });
+      clearMarks(['diff:done', 'view:ready']);
+      clearMeasures('measure:view');
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [
+    singleFileState,
+    activeView,
+    diffResults.length,
+    lineDiffOps.length,
+    inlineLineDiff.length,
+    treeNavCount,
+  ]);
 
   useEffect(() => {
     // Only process if both files have content
@@ -705,6 +776,7 @@ function AppContent() {
                 diffResults={filteredDiffResults}
                 activeFilters={activeFilters}
                 activeDiffIndex={currentDiffIndex}
+                onJumpComplete={handleJumpComplete}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}
@@ -720,6 +792,7 @@ function AppContent() {
                 lineDiff={inlineLineDiff}
                 activeFilters={activeFilters}
                 activeDiffIndex={currentDiffIndex}
+                onJumpComplete={handleJumpComplete}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}
@@ -734,6 +807,7 @@ function AppContent() {
                 parseResultB={parseResultB}
                 isLargeFileMode={isLargeFileMode}
                 activeDiffIndex={currentDiffIndex}
+                onJumpComplete={handleJumpComplete}
                 onNavCountChange={setTreeNavCount}
                 onScopeChange={setTreeScope}
                 onSummaryChange={setTreeSummary}
@@ -759,6 +833,7 @@ function AppContent() {
       <footer className="flex items-center justify-center py-2 text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] border-t border-[var(--color-border)]">
         <span>{t.footer}</span>
       </footer>
+      <PerfDebugPanel />
     </div>
   );
 }

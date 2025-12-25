@@ -19,6 +19,7 @@ interface InlineViewProps {
   lineDiff?: UnifiedDiffLine[];
   disableSyntaxHighlight?: boolean;
   activeDiffIndex?: number;
+  onJumpComplete?: (index: number) => void;
   progressiveRender?: boolean;
   initialRenderCount?: number;
   renderBatchSize?: number;
@@ -43,6 +44,7 @@ export function InlineView({
   lineDiff: providedLineDiff,
   disableSyntaxHighlight = false,
   activeDiffIndex,
+  onJumpComplete,
   progressiveRender = false,
   initialRenderCount = 400,
   renderBatchSize = 400,
@@ -227,10 +229,11 @@ export function InlineView({
           target.classList.remove('diff-highlight-pulse');
         }, 1000);
       });
+      onJumpComplete?.(activeDiffIndex);
     }, 120);
 
     return () => clearTimeout(timer);
-  }, [activeDiffIndex, diffToDisplayIndex]);
+  }, [activeDiffIndex, diffToDisplayIndex, onJumpComplete]);
 
   if (lineDiff.length === 0) {
     return (
