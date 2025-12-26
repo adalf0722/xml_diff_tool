@@ -202,7 +202,7 @@ export const translations: Record<Language, Translations> = {
     enterXmlToCompare: 'Enter XML content to compare',
     treeSummaryScopeLabel: 'Scope: {scope}',
     treeScopeFull: 'Full tree',
-    treeScopeDiffOnly: 'Diff-only tree',
+    treeScopeDiffOnly: 'Focus tree',
 
     // Side by Side View
     originalXml: 'Original XML (A)',
@@ -296,9 +296,9 @@ export const translations: Record<Language, Translations> = {
     enableLargeFileMode: 'Enable large file mode',
     switchingView: 'Switching to {view}...',
     renderingLines: 'Rendering {current}/{total} lines...',
-    showDiffOnly: 'Show diffs only',
+    showDiffOnly: 'Focus mode',
     showFullTree: 'Show full tree',
-    diffOnlyTreeHint: 'Diff-only tree for large files.',
+    diffOnlyTreeHint: 'Show diff nodes with ancestor paths for context.',
     treeExpandStateCollapsed: 'Collapsed',
     treeExpandStateExpanded: 'Expanded',
     treeExpandStatePartial: 'Partial',
@@ -353,7 +353,7 @@ export const translations: Record<Language, Translations> = {
     enterXmlToCompare: '請輸入 XML 內容進行比較',
     treeSummaryScopeLabel: '範圍：{scope}',
     treeScopeFull: '完整樹',
-    treeScopeDiffOnly: '僅差異樹',
+    treeScopeDiffOnly: '焦點樹',
 
     // Side by Side View
     originalXml: '原始 XML (A)',
@@ -447,9 +447,9 @@ export const translations: Record<Language, Translations> = {
     enableLargeFileMode: '啟用大型檔案模式',
     switchingView: '正在切換到 {view}...',
     renderingLines: '正在渲染 {current}/{total} 行...',
-    showDiffOnly: '只顯示差異',
+    showDiffOnly: '焦點模式',
     showFullTree: '顯示完整樹',
-    diffOnlyTreeHint: '大型檔案預設只顯示差異節點。',
+    diffOnlyTreeHint: '只顯示差異節點與祖先路徑。',
     treeExpandStateCollapsed: '已收合',
     treeExpandStateExpanded: '已展開',
     treeExpandStatePartial: '部分展開',
@@ -504,7 +504,7 @@ export const translations: Record<Language, Translations> = {
     enterXmlToCompare: '请输入 XML 内容进行比较',
     treeSummaryScopeLabel: '范围：{scope}',
     treeScopeFull: '完整树',
-    treeScopeDiffOnly: '仅差异树',
+    treeScopeDiffOnly: '焦点树',
 
     // Side by Side View
     originalXml: '原始 XML (A)',
@@ -598,9 +598,9 @@ export const translations: Record<Language, Translations> = {
     enableLargeFileMode: '启用大型文件模式',
     switchingView: '正在切换到 {view}...',
     renderingLines: '正在渲染 {current}/{total} 行...',
-    showDiffOnly: '仅显示差异',
+    showDiffOnly: '焦点模式',
     showFullTree: '显示完整树',
-    diffOnlyTreeHint: '大型文件默认仅显示差异节点。',
+    diffOnlyTreeHint: '仅显示差异节点与祖先路径。',
     treeExpandStateCollapsed: '已收合',
     treeExpandStateExpanded: '已展开',
     treeExpandStatePartial: '部分展开',

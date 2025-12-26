@@ -470,13 +470,27 @@ export function getChangedPaths(diffResults: DiffResult[]): Set<string> {
   
   for (const result of diffResults) {
     if (result.type !== 'unchanged') {
-      paths.add(result.path);
-      // Also add all parent paths
-      const parts = result.path.split('/').filter(Boolean);
-      let currentPath = '';
-      for (const part of parts) {
-        currentPath += '/' + part.replace(/\[\d+\]$/, '');
-        paths.add(currentPath);
+      const candidatePaths = new Set<string>();
+      if (result.path) candidatePaths.add(result.path);
+      if (result.oldNode?.path) candidatePaths.add(result.oldNode.path);
+      if (result.newNode?.path) candidatePaths.add(result.newNode.path);
+
+      for (const candidate of candidatePaths) {
+        // Include the diff path and all ancestor paths.
+        // Keep leaf paths exact to avoid pulling in unrelated siblings.
+        const parts = candidate.split('/').filter(Boolean);
+        let currentPath = '';
+        let currentPathNoIndex = '';
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          const hasIndex = /\[\d+\]$/.test(part);
+          currentPath += '/' + part;
+          currentPathNoIndex += '/' + part.replace(/\[\d+\]$/, '');
+          paths.add(currentPath);
+          if (i < parts.length - 1 && !hasIndex) {
+            paths.add(currentPathNoIndex);
+          }
+        }
       }
     }
   }

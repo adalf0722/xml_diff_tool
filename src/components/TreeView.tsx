@@ -78,12 +78,6 @@ export function TreeView({
   const rightScrollerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!isLargeFileMode) {
-      setDiffOnlyOverride(null);
-    }
-  }, [isLargeFileMode]);
-
-  useEffect(() => {
     onScopeChange?.(showDiffOnly ? 'diff-only' : 'full');
   }, [onScopeChange, showDiffOnly]);
 
@@ -509,16 +503,14 @@ export function TreeView({
             <Minimize2 size={14} />
             <span className="hidden sm:inline">{t.collapseAll}</span>
           </button>
-          {isLargeFileMode && (
-            <button
-              onClick={() => setDiffOnlyOverride(!showDiffOnly)}
-              title={t.diffOnlyTreeHint}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
-            >
-              <Filter size={14} />
-              <span className="hidden sm:inline">{showDiffOnly ? t.showFullTree : t.showDiffOnly}</span>
-            </button>
-          )}
+          <button
+            onClick={() => setDiffOnlyOverride(!showDiffOnly)}
+            title={t.diffOnlyTreeHint}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]"
+          >
+            <Filter size={14} />
+            <span className="hidden sm:inline">{showDiffOnly ? t.showFullTree : t.showDiffOnly}</span>
+          </button>
         </div>
         <span className="text-xs text-[var(--color-text-muted)] hidden md:inline">
           {t.treeExpandStateLabel.replace('{state}', expandStateLabel)}
