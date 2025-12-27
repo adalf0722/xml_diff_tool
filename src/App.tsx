@@ -244,6 +244,13 @@ function AppContent() {
     }
   }, [activeView, treeNavCount, inlineDiffCount, sideBySideDiffCount]);
 
+  useEffect(() => {
+    setCurrentDiffIndex(prev => {
+      if (totalNavigableDiffs <= 0) return 0;
+      return Math.min(prev, totalNavigableDiffs - 1);
+    });
+  }, [totalNavigableDiffs]);
+
   // Reset navigation index and filters when view changes
   useEffect(() => {
     setCurrentDiffIndex(0);
@@ -823,6 +830,7 @@ function AppContent() {
                 activeFilters={activeFilters}
                 activeDiffIndex={currentDiffIndex}
                 onJumpComplete={handleJumpComplete}
+                onNavCountChange={setSideBySideDiffCount}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}
@@ -839,6 +847,7 @@ function AppContent() {
                 activeFilters={activeFilters}
                 activeDiffIndex={currentDiffIndex}
                 onJumpComplete={handleJumpComplete}
+                onNavCountChange={setInlineDiffCount}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}

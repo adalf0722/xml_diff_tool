@@ -46,6 +46,8 @@ export interface Translations {
   removed: string;
   modified: string;
   unchanged: string;
+  sideOnlyA: string;
+  sideOnlyB: string;
   noDifferences: string;
   enterXmlToCompare: string;
   treeSummaryScopeLabel: string;
@@ -198,6 +200,8 @@ export const translations: Record<Language, Translations> = {
     removed: 'Removed',
     modified: 'Modified',
     unchanged: 'Unchanged',
+    sideOnlyA: 'A only',
+    sideOnlyB: 'B only',
     noDifferences: '✓ The two XML documents are identical',
     enterXmlToCompare: 'Enter XML content to compare',
     treeSummaryScopeLabel: 'Scope: {scope}',
@@ -349,6 +353,8 @@ export const translations: Record<Language, Translations> = {
     removed: '刪除',
     modified: '修改',
     unchanged: '未變',
+    sideOnlyA: '僅 A',
+    sideOnlyB: '僅 B',
     noDifferences: '✓ 兩個 XML 文件完全相同',
     enterXmlToCompare: '請輸入 XML 內容進行比較',
     treeSummaryScopeLabel: '範圍：{scope}',
@@ -500,6 +506,8 @@ export const translations: Record<Language, Translations> = {
     removed: '删除',
     modified: '修改',
     unchanged: '未变',
+    sideOnlyA: '仅 A',
+    sideOnlyB: '仅 B',
     noDifferences: '✓ 两个 XML 文档完全相同',
     enterXmlToCompare: '请输入 XML 内容进行比较',
     treeSummaryScopeLabel: '范围：{scope}',

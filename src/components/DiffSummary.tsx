@@ -114,6 +114,22 @@ export function DiffSummary({
           treeScope === 'diff-only' ? t.treeScopeDiffOnly : t.treeScopeFull
         )
       : null;
+  const sideLegend = (
+    <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
+      <span className="flex items-center gap-1">
+        <span className="rounded border border-red-500/40 bg-red-500/15 px-1.5 py-0.5 text-red-300">
+          {t.sideOnlyA}
+        </span>
+        <span>{t.removed}</span>
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="rounded border border-green-500/40 bg-green-500/15 px-1.5 py-0.5 text-green-300">
+          {t.sideOnlyB}
+        </span>
+        <span>{t.added}</span>
+      </span>
+    </div>
+  );
 
   const containerClass = compact
     ? 'flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4'
@@ -164,6 +180,8 @@ export function DiffSummary({
           {t.unchanged}: {summary.unchanged}
         </span>
       </div>
+
+      {sideLegend}
 
       {/* Reset button - only show when not in default state */}
       {!isDefaultFilterState && (

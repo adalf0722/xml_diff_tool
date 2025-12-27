@@ -771,11 +771,21 @@ function TreeRow({
 
         {/* Diff badge */}
         {shouldHighlight && (
-          <DiffBadge type={node.diffType} label={
-            node.diffType === 'added' ? t.badgeAdded :
-            node.diffType === 'removed' ? t.badgeRemoved :
-            node.diffType === 'modified' ? t.badgeModified : ''
-          } />
+          <DiffBadge
+            type={node.diffType}
+            label={
+              node.diffType === 'added' ? t.badgeAdded :
+              node.diffType === 'removed' ? t.badgeRemoved :
+              node.diffType === 'modified' ? t.badgeModified : ''
+            }
+            sideLabel={
+              node.diffType === 'added'
+                ? t.sideOnlyB
+                : node.diffType === 'removed'
+                  ? t.sideOnlyA
+                  : undefined
+            }
+          />
         )}
       </div>
     </div>
@@ -795,19 +805,32 @@ function getDiffClass(type: DiffType): string {
   }
 }
 
-function DiffBadge({ type, label }: { type: DiffType; label: string }) {
+function DiffBadge({ type, label, sideLabel }: { type: DiffType; label: string; sideLabel?: string }) {
   const colorMap = {
     added: 'bg-green-500 text-white',
     removed: 'bg-red-500 text-white',
     modified: 'bg-yellow-500 text-black',
     unchanged: '',
   };
+  const sideColorMap = {
+    added: 'border-green-500/40 bg-green-500/15 text-green-300',
+    removed: 'border-red-500/40 bg-red-500/15 text-red-300',
+    modified: 'border-yellow-500/40 bg-yellow-500/15 text-yellow-200',
+    unchanged: '',
+  };
 
   if (!label) return null;
 
   return (
-    <span className={`ml-auto px-1.5 py-0.5 text-xs font-medium rounded ${colorMap[type]}`}>
-      {label}
+    <span className="ml-auto flex items-center gap-1">
+      <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${colorMap[type]}`}>
+        {label}
+      </span>
+      {sideLabel && (
+        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${sideColorMap[type]}`}>
+          {sideLabel}
+        </span>
+      )}
     </span>
   );
 }
@@ -820,10 +843,16 @@ function DiffLegend() {
       <span className="flex items-center gap-1">
         <span className="w-3 h-3 rounded bg-green-500" />
         <span className="text-[var(--color-text-muted)]">{t.added}</span>
+        <span className="rounded border border-green-500/40 bg-green-500/15 px-1 py-0.5 text-[10px] font-semibold text-green-300">
+          {t.sideOnlyB}
+        </span>
       </span>
       <span className="flex items-center gap-1">
         <span className="w-3 h-3 rounded bg-red-500" />
         <span className="text-[var(--color-text-muted)]">{t.removed}</span>
+        <span className="rounded border border-red-500/40 bg-red-500/15 px-1 py-0.5 text-[10px] font-semibold text-red-300">
+          {t.sideOnlyA}
+        </span>
       </span>
       <span className="flex items-center gap-1">
         <span className="w-3 h-3 rounded bg-yellow-500" />

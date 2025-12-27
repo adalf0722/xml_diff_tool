@@ -20,6 +20,7 @@ interface InlineViewProps {
   disableSyntaxHighlight?: boolean;
   activeDiffIndex?: number;
   onJumpComplete?: (index: number) => void;
+  onNavCountChange?: (count: number) => void;
   progressiveRender?: boolean;
   initialRenderCount?: number;
   renderBatchSize?: number;
@@ -45,6 +46,7 @@ export function InlineView({
   disableSyntaxHighlight = false,
   activeDiffIndex,
   onJumpComplete,
+  onNavCountChange,
   progressiveRender = false,
   initialRenderCount = 400,
   renderBatchSize = 400,
@@ -85,7 +87,7 @@ export function InlineView({
     const indexMap = new Map<number, number>();
     
     lineDiff.forEach((line, idx) => {
-      if (line.type !== 'context') {
+      if (line.type !== 'context' && activeFilters.has(line.type as DiffType)) {
         indexMap.set(idx, diffIdx);
         diffIdx++;
       }
@@ -98,7 +100,7 @@ export function InlineView({
     }));
     
     return { groupedLines: lines, diffIndexMap: indexMap };
-  }, [lineDiff]);
+  }, [lineDiff, activeFilters]);
 
   const displayItems = useMemo(() => {
     if (!collapseUnchanged || groupedLines.length === 0) {
@@ -242,6 +244,10 @@ export function InlineView({
     });
     return map;
   }, [diffIndexMap]);
+
+  useEffect(() => {
+    onNavCountChange?.(diffIndexMap.size);
+  }, [diffIndexMap.size, onNavCountChange]);
 
   const addExpandedRange = useCallback((start: number, end: number) => {
     const total = groupedLines.length;
@@ -436,6 +442,7 @@ interface InlineDiffLineProps {
 }
 
 function InlineDiffLine({ line, lineNumberWidth, activeFilters, disableSyntaxHighlight, diffPath }: InlineDiffLineProps) {
+  const { t } = useLanguage();
   // Determine if this line should be highlighted based on active filters
   // In inline view (Unified Diff format): only 'added', 'removed' filters apply
   // 'context' lines are always shown (no highlight)
@@ -456,6 +463,12 @@ function InlineDiffLine({ line, lineNumberWidth, activeFilters, disableSyntaxHig
   const bgClass = shouldHighlight ? getBgClass(line.type) : '';
   const prefixChar = shouldHighlight ? getPrefixChar(line.type) : ' ';
   const prefixColor = shouldHighlight ? getPrefixColor(line.type) : '';
+  const sideOnlyLabel =
+    line.type === 'removed' ? t.sideOnlyA : line.type === 'added' ? t.sideOnlyB : null;
+  const sideOnlyClass =
+    line.type === 'removed'
+      ? 'border-red-500/40 bg-red-500/15 text-red-300'
+      : 'border-green-500/40 bg-green-500/15 text-green-300';
 
   return (
     <div 
@@ -489,6 +502,11 @@ function InlineDiffLine({ line, lineNumberWidth, activeFilters, disableSyntaxHig
       <pre className="flex-1 px-2 py-0.5 whitespace-pre overflow-hidden">
         {disableSyntaxHighlight ? (line.content || '\u00A0') : <XMLSyntaxHighlight content={line.content} />}
       </pre>
+      {sideOnlyLabel && (
+        <span className={`mr-2 self-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${sideOnlyClass}`}>
+          {sideOnlyLabel}
+        </span>
+      )}
     </div>
   );
 }

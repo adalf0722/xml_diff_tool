@@ -22,6 +22,7 @@ interface SideBySideViewProps {
   activeFilters: Set<DiffType>;
   activeDiffIndex?: number;
   onJumpComplete?: (index: number) => void;
+  onNavCountChange?: (count: number) => void;
   disableSyntaxHighlight?: boolean;
   progressiveRender?: boolean;
   initialRenderCount?: number;
@@ -54,6 +55,7 @@ export function SideBySideView({
   activeFilters,
   activeDiffIndex,
   onJumpComplete,
+  onNavCountChange,
   disableSyntaxHighlight = false,
   progressiveRender = false,
   initialRenderCount = 400,
@@ -89,17 +91,16 @@ export function SideBySideView({
     const indexMap = new Map<number, number>();
     let diffIdx = 0;
     lines.forEach((line, lineIdx) => {
-      const leftType = line.left?.type;
-      const rightType = line.right?.type;
-      // Count as navigable if either side has a diff
-      if ((leftType && leftType !== 'unchanged') || (rightType && rightType !== 'unchanged')) {
+      const lineType = line.left?.type ?? line.right?.type ?? 'unchanged';
+      const isNavigable = lineType !== 'unchanged' && activeFilters.has(lineType as DiffType);
+      if (isNavigable) {
         indexMap.set(lineIdx, diffIdx);
         diffIdx++;
       }
     });
     
     return { alignedLines: lines, diffIndexMap: indexMap };
-  }, [formattedA, formattedB, lineDiffOps]);
+  }, [formattedA, formattedB, lineDiffOps, activeFilters]);
 
   const displayItems = useMemo(() => {
     if (!collapseUnchanged || alignedLines.length === 0) {
@@ -245,6 +246,10 @@ export function SideBySideView({
     });
     return map;
   }, [diffIndexMap]);
+
+  useEffect(() => {
+    onNavCountChange?.(diffIndexMap.size);
+  }, [diffIndexMap.size, onNavCountChange]);
 
   const addExpandedRange = useCallback((start: number, end: number) => {
     const total = alignedLines.length;
@@ -419,6 +424,7 @@ export function SideBySideView({
                 lineNumberWidth={lineNumberWidth}
                 diffType={item.line.left?.type || null}
                 isEmpty={!item.line.left}
+                side="left"
                 activeFilters={activeFilters}
                 disableSyntaxHighlight={disableSyntaxHighlight}
                 diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
@@ -467,6 +473,7 @@ export function SideBySideView({
                 lineNumberWidth={lineNumberWidth}
                 diffType={item.line.right?.type || null}
                 isEmpty={!item.line.right}
+                side="right"
                 activeFilters={activeFilters}
                 disableSyntaxHighlight={disableSyntaxHighlight}
                 diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
@@ -533,6 +540,7 @@ interface DiffLineProps {
   lineNumberWidth: number;
   diffType: LineDiffType | null;
   isEmpty: boolean;
+  side: 'left' | 'right';
   activeFilters: Set<DiffType>;
   disableSyntaxHighlight: boolean;
   diffPath?: string;
@@ -544,10 +552,12 @@ function DiffLine({
   lineNumberWidth,
   diffType,
   isEmpty,
+  side,
   activeFilters,
   disableSyntaxHighlight,
   diffPath,
 }: DiffLineProps) {
+  const { t } = useLanguage();
   // Only show highlighting if the filter is active
   const shouldHighlight = diffType && diffType !== 'unchanged' && activeFilters.has(diffType);
   
@@ -556,6 +566,17 @@ function DiffLine({
     if (!shouldHighlight) return '';
     return `diff-${diffType}`;
   };
+
+  const sideOnlyLabel =
+    diffType === 'removed' && side === 'left'
+      ? t.sideOnlyA
+      : diffType === 'added' && side === 'right'
+        ? t.sideOnlyB
+        : null;
+  const sideOnlyClass =
+    diffType === 'removed'
+      ? 'border-red-500/40 bg-red-500/15 text-red-300'
+      : 'border-green-500/40 bg-green-500/15 text-green-300';
 
   return (
     <div 
@@ -576,6 +597,11 @@ function DiffLine({
             : <XMLSyntaxHighlight content={content} />
         }
       </pre>
+      {sideOnlyLabel && !isEmpty && (
+        <span className={`mr-2 self-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${sideOnlyClass}`}>
+          {sideOnlyLabel}
+        </span>
+      )}
     </div>
   );
 }
