@@ -11,6 +11,7 @@ import { prettyPrintXML } from '../utils/pretty-print';
 import { diffLines } from '../utils/line-diff';
 import type { LineDiffOp } from '../utils/line-diff';
 import { useLanguage } from '../contexts/LanguageContext';
+import { DiffOverviewBar } from './DiffOverviewBar';
 
 interface SideBySideViewProps {
   xmlA: string;
@@ -22,6 +23,7 @@ interface SideBySideViewProps {
   activeFilters: Set<DiffType>;
   activeDiffIndex?: number;
   onJumpComplete?: (index: number) => void;
+  onNavigate?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
   disableSyntaxHighlight?: boolean;
   progressiveRender?: boolean;
@@ -55,6 +57,7 @@ export function SideBySideView({
   activeFilters,
   activeDiffIndex,
   onJumpComplete,
+  onNavigate,
   onNavCountChange,
   disableSyntaxHighlight = false,
   progressiveRender = false,
@@ -69,8 +72,26 @@ export function SideBySideView({
   const leftScrollerRef = useRef<HTMLElement | null>(null);
   const rightScrollerRef = useRef<HTMLElement | null>(null);
   const isScrolling = useRef(false);
+  const [scrollInfo, setScrollInfo] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 });
+  const scrollInfoRef = useRef<{ scrollTop: number; scrollHeight: number; clientHeight: number } | null>(null);
+  const scrollRafRef = useRef<number | null>(null);
   const [expandedRanges, setExpandedRanges] = useState<Array<{ start: number; end: number }>>([]);
   const expandPreviewCount = 50;
+  const scheduleScrollInfo = useCallback((element: HTMLElement | null) => {
+    if (!element) return;
+    scrollInfoRef.current = {
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      if (scrollInfoRef.current) {
+        setScrollInfo(scrollInfoRef.current);
+      }
+    });
+  }, []);
 
   // Format XML for display
   const formattedA = useMemo(() => {
@@ -247,6 +268,24 @@ export function SideBySideView({
     return map;
   }, [diffIndexMap]);
 
+  const overviewMarkers = useMemo(() => {
+    const markers: Array<{ diffIndex: number; lineIndex: number }> = [];
+    diffToLineIndex.forEach((lineIndex, diffIndex) => {
+      markers.push({ diffIndex, lineIndex });
+    });
+    return markers;
+  }, [diffToLineIndex]);
+
+  const overviewViewport = useMemo(() => {
+    if (!scrollInfo.scrollHeight || !scrollInfo.clientHeight) return null;
+    const start = scrollInfo.scrollTop / scrollInfo.scrollHeight;
+    const size = scrollInfo.clientHeight / scrollInfo.scrollHeight;
+    return {
+      start: Math.max(0, Math.min(1, start)),
+      end: Math.max(0, Math.min(1, start + size)),
+    };
+  }, [scrollInfo]);
+
   useEffect(() => {
     onNavCountChange?.(diffIndexMap.size);
   }, [diffIndexMap.size, onNavCountChange]);
@@ -289,11 +328,14 @@ export function SideBySideView({
       targetPanel.scrollTop = sourcePanel.scrollTop;
       targetPanel.scrollLeft = sourcePanel.scrollLeft;
     }
+    if (sourcePanel instanceof HTMLElement) {
+      scheduleScrollInfo(sourcePanel);
+    }
 
     requestAnimationFrame(() => {
       isScrolling.current = false;
     });
-  }, []);
+  }, [scheduleScrollInfo]);
 
   const handleLeftScroll = useCallback(() => handleScroll('left'), [handleScroll]);
   const handleRightScroll = useCallback(() => handleScroll('right'), [handleScroll]);
@@ -312,8 +354,9 @@ export function SideBySideView({
     currentRef.current = normalized;
     if (normalized) {
       normalized.addEventListener('scroll', handler, { passive: true });
+      scheduleScrollInfo(normalized);
     }
-  }, [handleLeftScroll, handleRightScroll]);
+  }, [handleLeftScroll, handleRightScroll, scheduleScrollInfo]);
 
   useEffect(() => {
     return () => {
@@ -385,6 +428,13 @@ export function SideBySideView({
           </span>
         </div>
       )}
+      <DiffOverviewBar
+        totalLines={alignedLines.length}
+        markers={overviewMarkers}
+        activeIndex={activeDiffIndex}
+        onSelect={onNavigate}
+        viewport={overviewViewport}
+      />
       <div className="flex h-full divide-x divide-[var(--color-border)]">
       {/* Left Panel - XML A (Old) */}
       <div className="flex-1 flex flex-col min-w-0">

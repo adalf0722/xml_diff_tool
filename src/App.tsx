@@ -830,6 +830,7 @@ function AppContent() {
                 activeFilters={activeFilters}
                 activeDiffIndex={currentDiffIndex}
                 onJumpComplete={handleJumpComplete}
+                onNavigate={handleNavigateToDiff}
                 onNavCountChange={setSideBySideDiffCount}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
@@ -847,6 +848,7 @@ function AppContent() {
                 activeFilters={activeFilters}
                 activeDiffIndex={currentDiffIndex}
                 onJumpComplete={handleJumpComplete}
+                onNavigate={handleNavigateToDiff}
                 onNavCountChange={setInlineDiffCount}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}

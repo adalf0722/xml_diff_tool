@@ -9,6 +9,7 @@ import { generateLineDiff } from '../core/xml-diff';
 import type { UnifiedDiffLine, DiffType } from '../core/xml-diff';
 import { prettyPrintXML } from '../utils/pretty-print';
 import { useLanguage } from '../contexts/LanguageContext';
+import { DiffOverviewBar } from './DiffOverviewBar';
 
 interface InlineViewProps {
   xmlA: string;
@@ -20,6 +21,7 @@ interface InlineViewProps {
   disableSyntaxHighlight?: boolean;
   activeDiffIndex?: number;
   onJumpComplete?: (index: number) => void;
+  onNavigate?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
   progressiveRender?: boolean;
   initialRenderCount?: number;
@@ -46,6 +48,7 @@ export function InlineView({
   disableSyntaxHighlight = false,
   activeDiffIndex,
   onJumpComplete,
+  onNavigate,
   onNavCountChange,
   progressiveRender = false,
   initialRenderCount = 400,
@@ -56,8 +59,26 @@ export function InlineView({
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
+  const [scrollInfo, setScrollInfo] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 });
+  const scrollInfoRef = useRef<{ scrollTop: number; scrollHeight: number; clientHeight: number } | null>(null);
+  const scrollRafRef = useRef<number | null>(null);
   const [expandedRanges, setExpandedRanges] = useState<Array<{ start: number; end: number }>>([]);
   const expandPreviewCount = 50;
+  const scheduleScrollInfo = useCallback((element: HTMLElement | null) => {
+    if (!element) return;
+    scrollInfoRef.current = {
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      if (scrollInfoRef.current) {
+        setScrollInfo(scrollInfoRef.current);
+      }
+    });
+  }, []);
   // Format and generate line diff
   const lineDiff = useMemo(() => {
     if (providedLineDiff) return providedLineDiff;
@@ -245,9 +266,40 @@ export function InlineView({
     return map;
   }, [diffIndexMap]);
 
+  const overviewMarkers = useMemo(() => {
+    const markers: Array<{ diffIndex: number; lineIndex: number }> = [];
+    diffToLineIndex.forEach((lineIndex, diffIndex) => {
+      markers.push({ diffIndex, lineIndex });
+    });
+    return markers;
+  }, [diffToLineIndex]);
+
+  const overviewViewport = useMemo(() => {
+    if (!scrollInfo.scrollHeight || !scrollInfo.clientHeight) return null;
+    const start = scrollInfo.scrollTop / scrollInfo.scrollHeight;
+    const size = scrollInfo.clientHeight / scrollInfo.scrollHeight;
+    return {
+      start: Math.max(0, Math.min(1, start)),
+      end: Math.max(0, Math.min(1, start + size)),
+    };
+  }, [scrollInfo]);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollerRef.current) return;
+    scheduleScrollInfo(scrollerRef.current);
+  }, [scheduleScrollInfo]);
+
   useEffect(() => {
     onNavCountChange?.(diffIndexMap.size);
   }, [diffIndexMap.size, onNavCountChange]);
+
+  useEffect(() => {
+    const node = scrollerRef.current;
+    if (!node) return;
+    node.addEventListener('scroll', handleScroll, { passive: true });
+    scheduleScrollInfo(node);
+    return () => node.removeEventListener('scroll', handleScroll);
+  }, [handleScroll, scheduleScrollInfo]);
 
   const addExpandedRange = useCallback((start: number, end: number) => {
     const total = groupedLines.length;
@@ -338,10 +390,20 @@ export function InlineView({
           </span>
         </div>
       )}
+      <DiffOverviewBar
+        totalLines={groupedLines.length}
+        markers={overviewMarkers}
+        activeIndex={activeDiffIndex}
+        onSelect={onNavigate}
+        viewport={overviewViewport}
+      />
       <Virtuoso
         ref={virtuosoRef}
         scrollerRef={(element) => {
           scrollerRef.current = element instanceof HTMLElement ? element : null;
+          if (scrollerRef.current) {
+            scheduleScrollInfo(scrollerRef.current);
+          }
         }}
         totalCount={renderItems.length}
         className="h-full"
