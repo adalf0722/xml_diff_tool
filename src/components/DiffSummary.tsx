@@ -115,20 +115,9 @@ export function DiffSummary({
         )
       : null;
   const sideLegend = (
-    <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
-      <span className="flex items-center gap-1">
-        <span className="rounded border border-red-500/40 bg-red-500/15 px-1.5 py-0.5 text-red-300">
-          {t.sideOnlyA}
-        </span>
-        <span>{t.removed}</span>
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="rounded border border-green-500/40 bg-green-500/15 px-1.5 py-0.5 text-green-300">
-          {t.sideOnlyB}
-        </span>
-        <span>{t.added}</span>
-      </span>
-    </div>
+    <span className="text-[10px] text-[var(--color-text-muted)]">
+      {t.sideOnlyA} = {t.removed} · {t.sideOnlyB} = {t.added}
+    </span>
   );
 
   const containerClass = compact
@@ -144,8 +133,8 @@ export function DiffSummary({
         type="added"
         isActive={activeFilters.has('added')}
         onToggle={() => onFilterToggle('added')}
-        colorClass="text-green-400 bg-green-500/20 border-green-500/40 hover:bg-green-500/30"
-        activeClass="ring-2 ring-green-500/50"
+        colorClass="text-[var(--color-diff-added-text)] bg-[var(--color-diff-added-bg)] border-[var(--color-diff-added-border)] hover:brightness-110"
+        activeClass="ring-2 ring-[var(--color-diff-added-border)]"
       />
 
       <FilterBadge
@@ -155,8 +144,8 @@ export function DiffSummary({
         type="removed"
         isActive={activeFilters.has('removed')}
         onToggle={() => onFilterToggle('removed')}
-        colorClass="text-red-400 bg-red-500/20 border-red-500/40 hover:bg-red-500/30"
-        activeClass="ring-2 ring-red-500/50"
+        colorClass="text-[var(--color-diff-removed-text)] bg-[var(--color-diff-removed-bg)] border-[var(--color-diff-removed-border)] hover:brightness-110"
+        activeClass="ring-2 ring-[var(--color-diff-removed-border)]"
       />
 
       {/* Modified badge - show for all views */}
@@ -167,8 +156,8 @@ export function DiffSummary({
         type="modified"
         isActive={activeFilters.has('modified')}
         onToggle={() => onFilterToggle('modified')}
-        colorClass="text-yellow-400 bg-yellow-500/20 border-yellow-500/40 hover:bg-yellow-500/30"
-        activeClass="ring-2 ring-yellow-500/50"
+        colorClass="text-[var(--color-diff-modified-text)] bg-[var(--color-diff-modified-bg)] border-[var(--color-diff-modified-border)] hover:brightness-110"
+        activeClass="ring-2 ring-[var(--color-diff-modified-border)]"
         disabled={activeView === 'inline'}
         disabledTooltip={t.modifiedNotAvailableInline}
       />
