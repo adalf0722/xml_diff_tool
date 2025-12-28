@@ -24,6 +24,8 @@ interface InlineViewProps {
   onJumpComplete?: (index: number) => void;
   onNavigate?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
+  onFilterToggle?: (type: DiffType) => void;
+  onResetFilters?: () => void;
   progressiveRender?: boolean;
   initialRenderCount?: number;
   renderBatchSize?: number;
@@ -52,6 +54,8 @@ export function InlineView({
   onJumpComplete,
   onNavigate,
   onNavCountChange,
+  onFilterToggle,
+  onResetFilters,
   progressiveRender = false,
   initialRenderCount = 400,
   renderBatchSize = 400,
@@ -532,13 +536,16 @@ export function InlineView({
           components={{ List: VirtuosoList }}
         />
       </div>
-      {showChunkList && (
+      {showChunkList && onFilterToggle && onResetFilters && (
         <div className="md:w-64 border-t md:border-t-0 md:border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
           <DiffChunkList
             title={t.chunkListTitle}
-            summary={t.chunkCountLabel.replace('{count}', chunkItems.length.toString())}
             chunks={chunkItems}
             activeDiffIndex={activeDiffIndex}
+            activeFilters={activeFilters}
+            onFilterToggle={onFilterToggle}
+            onResetFilters={onResetFilters}
+            allowModified={false}
             onSelect={onNavigate}
             className="h-full"
           />

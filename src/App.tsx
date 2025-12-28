@@ -986,6 +986,8 @@ function AppContent() {
                 onJumpComplete={handleJumpComplete}
                 onNavigate={handleNavigateToDiff}
                 onNavCountChange={setSideBySideDiffCount}
+                onFilterToggle={handleFilterToggle}
+                onResetFilters={handleResetFilters}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}
@@ -1005,6 +1007,8 @@ function AppContent() {
                 onJumpComplete={handleJumpComplete}
                 onNavigate={handleNavigateToDiff}
                 onNavCountChange={setInlineDiffCount}
+                onFilterToggle={handleFilterToggle}
+                onResetFilters={handleResetFilters}
                 disableSyntaxHighlight={isLargeFileMode}
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}

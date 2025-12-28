@@ -26,6 +26,8 @@ interface SideBySideViewProps {
   onJumpComplete?: (index: number) => void;
   onNavigate?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
+  onFilterToggle?: (type: DiffType) => void;
+  onResetFilters?: () => void;
   disableSyntaxHighlight?: boolean;
   progressiveRender?: boolean;
   initialRenderCount?: number;
@@ -61,6 +63,8 @@ export function SideBySideView({
   onJumpComplete,
   onNavigate,
   onNavCountChange,
+  onFilterToggle,
+  onResetFilters,
   disableSyntaxHighlight = false,
   progressiveRender = false,
   initialRenderCount = 400,
@@ -624,13 +628,15 @@ export function SideBySideView({
           </div>
         </div>
       </div>
-      {showChunkList && (
+      {showChunkList && onFilterToggle && onResetFilters && (
         <div className="md:w-64 border-t md:border-t-0 md:border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
           <DiffChunkList
             title={t.chunkListTitle}
-            summary={t.chunkCountLabel.replace('{count}', chunkItems.length.toString())}
             chunks={chunkItems}
             activeDiffIndex={activeDiffIndex}
+            activeFilters={activeFilters}
+            onFilterToggle={onFilterToggle}
+            onResetFilters={onResetFilters}
             onSelect={onNavigate}
             className="h-full"
           />

@@ -169,6 +169,9 @@ export interface Translations {
   chunkCountLabel: string;
   chunkLabel: string;
   chunkRangeLabel: string;
+  chunkFilterLabel: string;
+  chunkFilterAll: string;
+  chunkEmpty: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -336,6 +339,9 @@ export const translations: Record<Language, Translations> = {
     chunkCountLabel: '{count} chunks',
     chunkLabel: 'Chunk',
     chunkRangeLabel: 'Lines {start}-{end}',
+    chunkFilterLabel: 'Filter',
+    chunkFilterAll: 'All',
+    chunkEmpty: 'No matching chunks',
   },
 
   'zh-TW': {
@@ -502,6 +508,9 @@ export const translations: Record<Language, Translations> = {
     chunkCountLabel: '共 {count} 段',
     chunkLabel: '段落',
     chunkRangeLabel: '行 {start}-{end}',
+    chunkFilterLabel: '段落篩選',
+    chunkFilterAll: '全部',
+    chunkEmpty: '沒有符合的段落',
   },
 
   'zh-CN': {
@@ -668,6 +677,9 @@ export const translations: Record<Language, Translations> = {
     chunkCountLabel: '共 {count} 段',
     chunkLabel: '段落',
     chunkRangeLabel: '行 {start}-{end}',
+    chunkFilterLabel: '段落筛选',
+    chunkFilterAll: '全部',
+    chunkEmpty: '没有符合的段落',
   },
 };
 
