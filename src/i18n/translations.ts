@@ -75,6 +75,32 @@ export interface Translations {
   swap: string;
   collapseInput: string;
   expandInput: string;
+  close: string;
+
+  // Help & Empty State
+  help: string;
+  helpTitle: string;
+  helpSubtitle: string;
+  helpQuickStartTitle: string;
+  helpQuickStep1: string;
+  helpQuickStep2: string;
+  helpQuickStep3: string;
+  helpViewsTitle: string;
+  helpViewSide: string;
+  helpViewInline: string;
+  helpViewTree: string;
+  helpReportsTitle: string;
+  helpReportsDesc: string;
+  helpTipsTitle: string;
+  helpTipLargeFiles: string;
+  helpTipChunks: string;
+  emptyTitle: string;
+  emptySubtitle: string;
+  emptyStep1: string;
+  emptyStep2: string;
+  emptyStep3: string;
+  emptyUseSample: string;
+  emptyOpenHelp: string;
 
   // Diff badges
   badgeAdded: string;
@@ -248,6 +274,32 @@ export const translations: Record<Language, Translations> = {
     swap: 'Swap XML A and B',
     collapseInput: '▲ Collapse input area',
     expandInput: '▼ Expand input area',
+    close: 'Close',
+
+    // Help & Empty State
+    help: 'Help',
+    helpTitle: 'Getting Started',
+    helpSubtitle: 'Quick tips to compare XML files faster.',
+    helpQuickStartTitle: 'Quick start',
+    helpQuickStep1: 'Paste or upload XML in A and B.',
+    helpQuickStep2: 'Pick a view (Side by Side / Inline / Tree).',
+    helpQuickStep3: 'Use diff navigation or download a report.',
+    helpViewsTitle: 'View modes',
+    helpViewSide: 'Line-by-line comparison with synced scrolling.',
+    helpViewInline: 'Unified diff with additions and removals.',
+    helpViewTree: 'Tree diff for structural changes.',
+    helpReportsTitle: 'Reports',
+    helpReportsDesc: 'Download summaries that match the current view.',
+    helpTipsTitle: 'Tips',
+    helpTipLargeFiles: 'Large file mode reduces rendering for performance.',
+    helpTipChunks: 'Use diff chunks or minimap to jump quickly.',
+    emptyTitle: 'Welcome to XML Diff Tool',
+    emptySubtitle: 'Paste XML or start with a sample to see differences.',
+    emptyStep1: 'Upload or paste XML A and XML B.',
+    emptyStep2: 'Choose the view that fits your task.',
+    emptyStep3: 'Review changes and export a report.',
+    emptyUseSample: 'Use sample XML',
+    emptyOpenHelp: 'Open help',
 
     // Diff badges
     badgeAdded: 'Added',
@@ -420,6 +472,32 @@ export const translations: Record<Language, Translations> = {
     swap: '交換 XML A 和 B',
     collapseInput: '▲ 收起輸入區域',
     expandInput: '▼ 展開輸入區域',
+    close: '關閉',
+
+    // Help & Empty State
+    help: '幫助',
+    helpTitle: '使用說明',
+    helpSubtitle: '快速了解 XML 比對流程。',
+    helpQuickStartTitle: '快速上手',
+    helpQuickStep1: '貼上或上傳 XML A 與 XML B。',
+    helpQuickStep2: '選擇檢視模式（並排／內聯／樹狀）。',
+    helpQuickStep3: '用導覽跳轉或下載報告。',
+    helpViewsTitle: '檢視模式',
+    helpViewSide: '逐行並排比對，支援同步捲動。',
+    helpViewInline: '合併視圖顯示新增與刪除。',
+    helpViewTree: '樹狀結構變更更清楚。',
+    helpReportsTitle: '下載報告',
+    helpReportsDesc: '依目前視圖輸出對應摘要。',
+    helpTipsTitle: '使用建議',
+    helpTipLargeFiles: '大檔模式會降低渲染以提升效能。',
+    helpTipChunks: '用段落清單或縮略條快速跳轉。',
+    emptyTitle: '歡迎使用 XML Diff Tool',
+    emptySubtitle: '貼上 XML 或先用範例快速上手。',
+    emptyStep1: '上傳或貼上 XML A 與 XML B。',
+    emptyStep2: '選擇最適合的檢視模式。',
+    emptyStep3: '檢視差異並輸出報告。',
+    emptyUseSample: '使用範例 XML',
+    emptyOpenHelp: '開啟說明',
 
     // Diff badges
     badgeAdded: '新增',
@@ -592,6 +670,32 @@ export const translations: Record<Language, Translations> = {
     swap: '交换 XML A 和 B',
     collapseInput: '▲ 收起输入区域',
     expandInput: '▼ 展开输入区域',
+    close: '关闭',
+
+    // Help & Empty State
+    help: '帮助',
+    helpTitle: '使用说明',
+    helpSubtitle: '快速了解 XML 对比流程。',
+    helpQuickStartTitle: '快速上手',
+    helpQuickStep1: '粘贴或上传 XML A 与 XML B。',
+    helpQuickStep2: '选择视图模式（并排／内联／树状）。',
+    helpQuickStep3: '用导览跳转或下载报告。',
+    helpViewsTitle: '视图模式',
+    helpViewSide: '逐行并排对比，支持同步滚动。',
+    helpViewInline: '合并视图显示新增与删除。',
+    helpViewTree: '树状结构变更更清楚。',
+    helpReportsTitle: '下载报告',
+    helpReportsDesc: '按当前视图输出对应摘要。',
+    helpTipsTitle: '使用建议',
+    helpTipLargeFiles: '大文件模式会降低渲染以提升性能。',
+    helpTipChunks: '用段落列表或缩略条快速跳转。',
+    emptyTitle: '欢迎使用 XML Diff Tool',
+    emptySubtitle: '粘贴 XML 或先用示例快速上手。',
+    emptyStep1: '上传或粘贴 XML A 与 XML B。',
+    emptyStep2: '选择最适合的视图模式。',
+    emptyStep3: '查看差异并导出报告。',
+    emptyUseSample: '使用示例 XML',
+    emptyOpenHelp: '打开说明',
 
     // Diff badges
     badgeAdded: '新增',

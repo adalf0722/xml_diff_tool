@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
@@ -22,6 +22,8 @@ import { BatchProcessor } from './components/BatchProcessor';
 import { BatchResultList } from './components/BatchResultList';
 import { SingleFileProcessor } from './components/SingleFileProcessor';
 import { PerfDebugPanel } from './components/PerfDebugPanel';
+import { EmptyStateCard } from './components/EmptyStateCard';
+import { HelpDrawer } from './components/HelpDrawer';
 import type { DiffResult, DiffType, UnifiedDiffLine } from './core/xml-diff';
 import type { ParseResult } from './core/xml-parser';
 import { useDiffWorker } from './hooks/useDiffWorker';
@@ -131,10 +133,10 @@ function AppContent() {
   const [appMode, setAppMode] = useState<AppMode>('single');
   
   // Input state
-  const [xmlA, setXmlA] = useState(SAMPLE_XML_A);
-  const [xmlB, setXmlB] = useState(SAMPLE_XML_B);
-  const [displayXmlA, setDisplayXmlA] = useState(SAMPLE_XML_A);
-  const [displayXmlB, setDisplayXmlB] = useState(SAMPLE_XML_B);
+  const [xmlA, setXmlA] = useState('');
+  const [xmlB, setXmlB] = useState('');
+  const [displayXmlA, setDisplayXmlA] = useState('');
+  const [displayXmlB, setDisplayXmlB] = useState('');
   
   // View state
   const [activeView, setActiveView] = useState<ViewMode>('side-by-side');
@@ -148,6 +150,7 @@ function AppContent() {
   const [largeFileModeOverride, setLargeFileModeOverride] = useState<boolean | null>(null);
   const [viewSwitching, setViewSwitching] = useState(false);
   const [overviewModePref, setOverviewModePref] = useState<OverviewModePreference>('auto');
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // Filter state - which diff types to show (unchanged is always shown, not a filter)
   const [activeFilters, setActiveFilters] = useState<Set<DiffType>>(
@@ -202,6 +205,8 @@ function AppContent() {
   const showParseError = hasParseError && singleFileState !== 'processing';
   const showSingleFileProgress =
     singleFileState === 'processing' && singleFileProgress?.stage !== 'done';
+  const isEmptyInputs = !xmlA.trim() && !xmlB.trim();
+  const showEmptyState = appMode === 'single' && isEmptyInputs && !showSingleFileProgress;
   const maxInputSize = Math.max(xmlA.length, xmlB.length);
   const isLargeFile = maxInputSize >= LARGE_FILE_CHAR_THRESHOLD;
   const isLargeInputA = xmlA.length >= LARGE_FILE_CHAR_THRESHOLD;
@@ -426,6 +431,26 @@ function AppContent() {
   const handleXmlBChange = useCallback((value: string) => {
     inputPanelEditedBRef.current = true;
     setXmlB(value);
+  }, []);
+
+  const handleOpenHelp = useCallback(() => {
+    setIsHelpOpen(true);
+  }, []);
+
+  const handleCloseHelp = useCallback(() => {
+    setIsHelpOpen(false);
+  }, []);
+
+  const handleUseSample = useCallback(() => {
+    inputPanelEditedARef.current = true;
+    inputPanelEditedBRef.current = true;
+    setXmlA(SAMPLE_XML_A);
+    setXmlB(SAMPLE_XML_B);
+    setShowInputPanel(true);
+    setShowFullInputAOverride(null);
+    setShowFullInputBOverride(null);
+    setLargeFileModeOverride(null);
+    setIsHelpOpen(false);
   }, []);
 
   const handleXmlAUpload = useCallback(() => {
@@ -819,7 +844,13 @@ function AppContent() {
           </button>
         </div>
 
-        {(!showInputPanel || isLargeFile) && (
+        {showEmptyState && (
+          <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-primary)] px-4 py-6">
+            <EmptyStateCard onUseSample={handleUseSample} onOpenHelp={handleOpenHelp} />
+          </div>
+        )}
+
+        {(!showInputPanel || isLargeFile) && !showEmptyState && (
           <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-2 px-4 py-2">
               {!showInputPanel && (
@@ -895,7 +926,7 @@ function AppContent() {
           </div>
         )}
 
-        {!showParseError && (
+        {!showParseError && !showEmptyState && (
           <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
             <div className="flex flex-col gap-2 px-4 pt-2 pb-1 md:flex-row md:items-center md:justify-between">
               <ViewTabs activeView={activeView} onViewChange={setActiveView} compact />
@@ -964,14 +995,14 @@ function AppContent() {
             </div>
           </div>
         )}
-        {!showParseError && viewSwitching && (
+        {!showParseError && !showEmptyState && viewSwitching && (
           <div className="px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-secondary)]">
             {t.switchingView.replace('{view}', activeViewLabel)}
           </div>
         )}
 
         {/* Diff view */}
-        {!showParseError && (
+        {!showParseError && !showEmptyState && (
           <div className="flex-1 overflow-hidden">
             {activeView === 'side-by-side' && (
               <SideBySideView
@@ -1053,6 +1084,19 @@ function AppContent() {
       <footer className="flex items-center justify-center py-2 text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] border-t border-[var(--color-border)]">
         <span>{t.footer}</span>
       </footer>
+      {appMode === 'single' && (
+        <button
+          type="button"
+          onClick={handleOpenHelp}
+          className="fixed bottom-4 right-20 z-40 flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] shadow-sm hover:bg-[var(--color-bg-tertiary)]"
+        >
+          <HelpCircle size={14} />
+          <span className="hidden sm:inline">{t.help}</span>
+        </button>
+      )}
+      {appMode === 'single' && (
+        <HelpDrawer isOpen={isHelpOpen} onClose={handleCloseHelp} onUseSample={handleUseSample} />
+      )}
       <PerfDebugPanel />
     </div>
   );
