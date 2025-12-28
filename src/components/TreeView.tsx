@@ -823,7 +823,7 @@ function TreeRow({
 
           {/* Placeholder label */}
           <span className="text-xs text-[var(--color-text-muted)] ml-auto">
-            {node.placeholderLabel || (node.diffType === 'added' ? t.addedOnOtherSide : t.removedFromHere)}
+            {node.diffType === 'added' ? t.addedOnOtherSide : t.removedFromHere}
           </span>
         </div>
       </div>

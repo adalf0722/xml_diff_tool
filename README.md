@@ -21,7 +21,8 @@ A pure frontend XML comparison tool that visually presents differences between t
   - Line diff computed in a Web Worker with safe fallback for huge inputs
 - Diff filters, summary, and navigation
 - Drag and drop upload, swap, and XML formatting
-- Download diff reports (HTML/Text)
+- Mode-specific diff reports (HTML/Text) for Side by Side, Inline, and Tree
+- Coverage-based overview modes with chunk list navigation
 - Themes and multi-language UI
 
 ## Large File Notes
