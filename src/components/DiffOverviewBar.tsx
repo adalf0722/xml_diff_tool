@@ -1,8 +1,11 @@
 import React, { useMemo, useCallback } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface DiffOverviewMarker {
   diffIndex: number;
   lineIndex: number;
+  type?: 'added' | 'removed' | 'modified';
+  side?: 'A' | 'B';
 }
 
 interface DiffOverviewBarProps {
@@ -24,13 +27,25 @@ export function DiffOverviewBar({
   maxMarkers = 200,
   className = '',
 }: DiffOverviewBarProps) {
-  const sortedByLine = useMemo(() => {
-    return [...markers].sort((a, b) => a.lineIndex - b.lineIndex);
+  const { t } = useLanguage();
+  const uniqueMarkers = useMemo(() => {
+    const map = new Map<number, DiffOverviewMarker>();
+    markers.forEach(marker => {
+      const existing = map.get(marker.diffIndex);
+      if (!existing || marker.lineIndex < existing.lineIndex) {
+        map.set(marker.diffIndex, marker);
+      }
+    });
+    return Array.from(map.values());
   }, [markers]);
 
+  const sortedByLine = useMemo(() => {
+    return [...uniqueMarkers].sort((a, b) => a.lineIndex - b.lineIndex);
+  }, [uniqueMarkers]);
+
   const visibleMarkers = useMemo(() => {
-    if (totalLines <= 0 || markers.length === 0) return [];
-    const sorted = [...markers].sort((a, b) => a.diffIndex - b.diffIndex);
+    if (totalLines <= 0 || uniqueMarkers.length === 0) return [];
+    const sorted = [...uniqueMarkers].sort((a, b) => a.diffIndex - b.diffIndex);
     if (sorted.length <= maxMarkers) return sorted;
 
     const step = Math.ceil(sorted.length / maxMarkers);
@@ -47,24 +62,35 @@ export function DiffOverviewBar({
     }
 
     return sampled.sort((a, b) => a.diffIndex - b.diffIndex);
-  }, [activeIndex, markers, maxMarkers, totalLines]);
+  }, [activeIndex, maxMarkers, totalLines, uniqueMarkers]);
 
-  const densityBuckets = useMemo(() => {
+  const coverageRatio = useMemo(() => {
+    if (totalLines <= 0) return 0;
+    return Math.min(1, uniqueMarkers.length / totalLines);
+  }, [uniqueMarkers.length, totalLines]);
+
+  const lineMarkers = useMemo(() => {
     if (totalLines <= 0 || markers.length === 0) return [];
-    const bucketCount = Math.min(80, Math.max(24, Math.round(totalLines / 500)));
-    const buckets = new Array<number>(bucketCount).fill(0);
     const denominator = Math.max(totalLines - 1, 1);
+    const used = new Map<string, { topPercent: number; diffIndex: number; type?: DiffOverviewMarker['type']; side: 'A' | 'B' }>();
+    const rank = (type?: DiffOverviewMarker['type']) => {
+      if (type === 'modified') return 3;
+      if (type === 'added' || type === 'removed') return 2;
+      return 1;
+    };
+
     markers.forEach(marker => {
-      const ratio = marker.lineIndex / denominator;
-      const idx = Math.min(bucketCount - 1, Math.floor(ratio * bucketCount));
-      buckets[idx] += 1;
+      const top = (marker.lineIndex / denominator) * 100;
+      const rounded = Math.round(top * 10) / 10;
+      const side = marker.side ?? 'A';
+      const key = `${side}:${rounded}`;
+      const existing = used.get(key);
+      if (!existing || rank(marker.type) > rank(existing.type)) {
+        used.set(key, { topPercent: top, diffIndex: marker.diffIndex, type: marker.type, side });
+      }
     });
-    const maxCount = Math.max(...buckets, 1);
-    return buckets.map((count, index) => ({
-      index,
-      opacity: 0.12 + 0.68 * (count / maxCount),
-      heightPercent: 100 / bucketCount,
-    }));
+
+    return Array.from(used.values());
   }, [markers, totalLines]);
 
   const handleBarJump = useCallback(
@@ -110,33 +136,95 @@ export function DiffOverviewBar({
 
   const denominator = Math.max(totalLines - 1, 1);
 
+  const coverageText = t.overviewCoverageLabel.replace(
+    '{percent}',
+    Math.round(coverageRatio * 100).toString()
+  );
+  const densityText = coverageRatio > 0.8 ? ` · ${t.overviewHighDensity}` : '';
+
   return (
     <div className={`absolute right-2 top-4 bottom-4 z-20 flex items-stretch ${className}`.trim()}>
+      <span className="absolute -left-24 top-2 min-w-[92px] px-2 py-0.5 text-[10px] text-right rounded border border-[var(--color-border)] bg-[var(--color-bg-primary)]/90 text-[var(--color-text-secondary)] shadow-sm pointer-events-none">
+        {coverageText}
+        {densityText}
+      </span>
       <div
-        className="relative w-[6px] rounded-full border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/70 cursor-pointer shadow-sm"
+        className="relative w-[12px] rounded-full border border-[var(--color-accent)]/70 bg-[var(--color-bg-primary)]/60 cursor-pointer shadow-[0_0_0_1px_var(--color-bg-primary)] transition-colors hover:border-[var(--color-accent)]/90"
         onClick={handleClick}
       >
-        {densityBuckets.map(bucket => (
+        {/* Base layer */}
+        {lineMarkers.map(marker => (
           <span
-            key={bucket.index}
-            className="absolute left-0 right-0 pointer-events-none bg-[var(--color-accent)]"
+            key={`base-${marker.diffIndex}-${marker.topPercent}`}
+            className="absolute left-0 right-0 pointer-events-none"
             style={{
-              top: `${bucket.index * bucket.heightPercent}%`,
-              height: `${bucket.heightPercent}%`,
-              opacity: bucket.opacity,
+              top: `${marker.topPercent}%`,
+              height: '1px',
+              backgroundColor: 'var(--color-border)',
+              opacity: 0.35,
+              left: marker.side === 'A' ? '1px' : undefined,
+              right: marker.side === 'B' ? '1px' : undefined,
+              width: '4px',
             }}
           />
         ))}
+        {/* Color layer */}
+        {lineMarkers.map(marker => {
+          const color =
+            marker.type === 'added'
+              ? 'var(--color-diff-added-border)'
+              : marker.type === 'removed'
+                ? 'var(--color-diff-removed-border)'
+                : marker.type === 'modified'
+                  ? 'var(--color-diff-modified-border)'
+                  : 'var(--color-accent)';
+          const isActive = marker.diffIndex === activeIndex;
+          return (
+            <span
+              key={`color-${marker.diffIndex}-${marker.topPercent}`}
+              className="absolute left-0 right-0 pointer-events-none"
+              style={{
+                top: `${marker.topPercent}%`,
+                height: isActive ? '2px' : '1px',
+                backgroundColor: color,
+                opacity: isActive ? 1 : 0.9,
+                boxShadow: isActive ? `0 0 6px ${color}` : undefined,
+                left: marker.side === 'A' ? '1px' : undefined,
+                right: marker.side === 'B' ? '1px' : undefined,
+                width: '4px',
+              }}
+            />
+          );
+        })}
 
         {viewport && (
           <span
-            className="absolute left-0 right-0 rounded border border-[var(--color-accent)]/70 bg-[var(--color-bg-primary)]/40 pointer-events-none"
+            className="absolute left-0 right-0 rounded border-[var(--color-accent)]/95 bg-[var(--color-bg-primary)]/20 pointer-events-none"
             style={{
               top: `${Math.max(0, viewport.start) * 100}%`,
               height: `${Math.max(0, viewport.end - viewport.start) * 100}%`,
+              borderWidth: '2px',
             }}
-          />
+          >
+            <span
+              className="absolute left-1/2 -translate-x-1/2 -top-1 h-1.5 w-2 rounded-full bg-[var(--color-accent)]/90"
+              style={{ boxShadow: '0 0 6px var(--color-accent)' }}
+            />
+            <span
+              className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-1.5 w-2 rounded-full bg-[var(--color-accent)]/90"
+              style={{ boxShadow: '0 0 6px var(--color-accent)' }}
+            />
+          </span>
         )}
+
+        {/* Ticks */}
+        {[0, 0.5, 1].map(tick => (
+          <span
+            key={`tick-${tick}`}
+            className="absolute -left-1 w-2 h-[1px] bg-[var(--color-text-muted)]/60 pointer-events-none"
+            style={{ top: `${tick * 100}%` }}
+          />
+        ))}
 
         {visibleMarkers.map(marker => {
           const topPercent = (marker.lineIndex / denominator) * 100;

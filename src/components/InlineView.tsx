@@ -10,6 +10,7 @@ import type { UnifiedDiffLine, DiffType } from '../core/xml-diff';
 import { prettyPrintXML } from '../utils/pretty-print';
 import { useLanguage } from '../contexts/LanguageContext';
 import { DiffOverviewBar } from './DiffOverviewBar';
+import { DiffChunkList, type DiffChunkItem } from './DiffChunkList';
 
 interface InlineViewProps {
   xmlA: string;
@@ -28,6 +29,7 @@ interface InlineViewProps {
   renderBatchSize?: number;
   collapseUnchanged?: boolean;
   contextLines?: number;
+  overviewMode?: 'minimap' | 'hybrid' | 'chunks';
 }
 
 const VirtuosoList = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -55,6 +57,7 @@ export function InlineView({
   renderBatchSize = 400,
   collapseUnchanged = false,
   contextLines = 3,
+  overviewMode = 'minimap',
 }: InlineViewProps) {
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -267,12 +270,29 @@ export function InlineView({
   }, [diffIndexMap]);
 
   const overviewMarkers = useMemo(() => {
-    const markers: Array<{ diffIndex: number; lineIndex: number }> = [];
+    const markers: Array<{
+      diffIndex: number;
+      lineIndex: number;
+      type: 'added' | 'removed' | 'modified';
+      side: 'A' | 'B';
+    }> = [];
     diffToLineIndex.forEach((lineIndex, diffIndex) => {
-      markers.push({ diffIndex, lineIndex });
+      const lineType = groupedLines[lineIndex]?.type;
+      if (lineType === 'added') {
+        markers.push({ diffIndex, lineIndex, type: 'added', side: 'B' });
+        return;
+      }
+      if (lineType === 'removed') {
+        markers.push({ diffIndex, lineIndex, type: 'removed', side: 'A' });
+        return;
+      }
+      if (lineType === 'modified') {
+        markers.push({ diffIndex, lineIndex, type: 'modified', side: 'A' });
+        markers.push({ diffIndex, lineIndex, type: 'modified', side: 'B' });
+      }
     });
     return markers;
-  }, [diffToLineIndex]);
+  }, [diffToLineIndex, groupedLines]);
 
   const overviewViewport = useMemo(() => {
     if (!scrollInfo.scrollHeight || !scrollInfo.clientHeight) return null;
@@ -363,8 +383,75 @@ export function InlineView({
     contextLines,
     diffToDisplayIndex,
     diffToLineIndex,
-    onJumpComplete,
+  onJumpComplete,
   ]);
+
+  const chunkItems: DiffChunkItem[] = useMemo(() => {
+    if (groupedLines.length === 0) return [];
+    const diffIndices: number[] = [];
+    groupedLines.forEach((line, index) => {
+      if (line.type !== 'context' && activeFilters.has(line.type as DiffType)) {
+        diffIndices.push(index);
+      }
+    });
+    if (diffIndices.length === 0) return [];
+
+    const gapLimit = Math.max(1, contextLines * 2 + 1);
+    const ranges: Array<{ start: number; end: number }> = [];
+    let start = diffIndices[0];
+    let prev = diffIndices[0];
+    for (let i = 1; i < diffIndices.length; i += 1) {
+      const index = diffIndices[i];
+      if (index - prev <= gapLimit) {
+        prev = index;
+        continue;
+      }
+      ranges.push({ start, end: prev });
+      start = index;
+      prev = index;
+    }
+    ranges.push({ start, end: prev });
+
+    return ranges
+      .map((range, idx) => {
+        let added = 0;
+        let removed = 0;
+        let modified = 0;
+        let diffIndexStart = Number.POSITIVE_INFINITY;
+        let diffIndexEnd = -1;
+
+        for (let lineIndex = range.start; lineIndex <= range.end; lineIndex += 1) {
+          const lineType = groupedLines[lineIndex]?.type ?? 'context';
+          if (lineType !== 'context' && activeFilters.has(lineType as DiffType)) {
+            if (lineType === 'added') added += 1;
+            if (lineType === 'removed') removed += 1;
+            if (lineType === 'modified') modified += 1;
+          }
+          const diffIdx = diffIndexMap.get(lineIndex);
+          if (diffIdx !== undefined) {
+            diffIndexStart = Math.min(diffIndexStart, diffIdx);
+            diffIndexEnd = Math.max(diffIndexEnd, diffIdx);
+          }
+        }
+
+        if (!Number.isFinite(diffIndexStart)) return null;
+
+        const label = `${t.chunkLabel} ${idx + 1}`;
+        const rangeLabel = t.chunkRangeLabel
+          .replace('{start}', (range.start + 1).toString())
+          .replace('{end}', (range.end + 1).toString());
+
+        return {
+          id: `chunk-${range.start}-${range.end}`,
+          label,
+          rangeLabel,
+          diffIndexStart,
+          diffIndexEnd,
+          counts: { added, removed, modified },
+        };
+      })
+      .filter((item): item is DiffChunkItem => item !== null);
+  }, [activeFilters, contextLines, diffIndexMap, groupedLines, t]);
 
   if (lineDiff.length === 0) {
     return (
@@ -374,70 +461,89 @@ export function InlineView({
     );
   }
 
+  const showChunkList = (overviewMode === 'hybrid' || overviewMode === 'chunks') && chunkItems.length > 0;
+  const showOverviewBar = overviewMode !== 'chunks';
+
   return (
-    <div className="relative h-full font-mono text-sm">
-      {showRendering && totalLines > 0 && (
-        <div className="absolute right-3 top-2 z-10 rounded-full border border-[var(--color-diff-modified-border)] bg-[var(--color-diff-modified-bg)] px-3 py-1 text-xs font-semibold text-[var(--color-diff-modified-text)] shadow-sm pointer-events-none flex items-center gap-2">
-          <span className="absolute inset-0 rounded-full bg-[var(--color-diff-modified-bg)] opacity-70 animate-pulse" />
-          <span
-            className="h-2 w-2 rounded-full bg-[var(--color-diff-modified-border)]"
-            style={{ boxShadow: '0 0 8px var(--color-diff-modified-border)' }}
+    <div className="flex h-full flex-col md:flex-row">
+      <div className="relative flex-1 min-h-0 font-mono text-sm">
+        {showRendering && totalLines > 0 && (
+          <div className="absolute right-3 top-2 z-10 rounded-full border border-[var(--color-diff-modified-border)] bg-[var(--color-diff-modified-bg)] px-3 py-1 text-xs font-semibold text-[var(--color-diff-modified-text)] shadow-sm pointer-events-none flex items-center gap-2">
+            <span className="absolute inset-0 rounded-full bg-[var(--color-diff-modified-bg)] opacity-70 animate-pulse" />
+            <span
+              className="h-2 w-2 rounded-full bg-[var(--color-diff-modified-border)]"
+              style={{ boxShadow: '0 0 8px var(--color-diff-modified-border)' }}
+            />
+            <span className="relative">
+              {t.renderingLines
+                .replace('{current}', visibleCount.toLocaleString())
+                .replace('{total}', totalLines.toLocaleString())}
+            </span>
+          </div>
+        )}
+        {showOverviewBar && (
+          <DiffOverviewBar
+            totalLines={groupedLines.length}
+            markers={overviewMarkers}
+            activeIndex={activeDiffIndex}
+            onSelect={onNavigate}
+            viewport={overviewViewport}
           />
-          <span className="relative">
-            {t.renderingLines
-              .replace('{current}', visibleCount.toLocaleString())
-              .replace('{total}', totalLines.toLocaleString())}
-          </span>
-        </div>
-      )}
-      <DiffOverviewBar
-        totalLines={groupedLines.length}
-        markers={overviewMarkers}
-        activeIndex={activeDiffIndex}
-        onSelect={onNavigate}
-        viewport={overviewViewport}
-      />
-      <Virtuoso
-        ref={virtuosoRef}
-        scrollerRef={(element) => {
-          scrollerRef.current = element instanceof HTMLElement ? element : null;
-          if (scrollerRef.current) {
-            scheduleScrollInfo(scrollerRef.current);
-          }
-        }}
-        totalCount={renderItems.length}
-        className="h-full"
-        style={{ height: '100%' }}
-        itemContent={(index) => {
-          const item = renderItems[index];
-          if (!item) return null;
-          if (item.type === 'collapse') {
+        )}
+        <Virtuoso
+          ref={virtuosoRef}
+          scrollerRef={(element) => {
+            scrollerRef.current = element instanceof HTMLElement ? element : null;
+            if (scrollerRef.current) {
+              scheduleScrollInfo(scrollerRef.current);
+            }
+          }}
+          totalCount={renderItems.length}
+          className="h-full"
+          style={{ height: '100%' }}
+          itemContent={(index) => {
+            const item = renderItems[index];
+            if (!item) return null;
+            if (item.type === 'collapse') {
+              return (
+                <CollapsedInlineLine
+                  key={`collapse-${item.start}-${item.end}`}
+                  lineNumberWidth={lineNumberWidth}
+                  count={item.count}
+                  onExpand={() => addExpandedRange(item.start, item.end)}
+                  onExpandChunk={() => addExpandedRange(item.start, item.start + expandPreviewCount - 1)}
+                  expandLabel={t.expandSection}
+                  expandChunkLabel={t.expandLines.replace('{count}', expandPreviewCount.toLocaleString())}
+                />
+              );
+            }
+            const diffIdx = diffIndexMap.get(item.lineIndex);
             return (
-              <CollapsedInlineLine
-                key={`collapse-${item.start}-${item.end}`}
+              <InlineDiffLine
+                key={`line-${item.lineIndex}`}
+                line={item.line}
                 lineNumberWidth={lineNumberWidth}
-                count={item.count}
-                onExpand={() => addExpandedRange(item.start, item.end)}
-                onExpandChunk={() => addExpandedRange(item.start, item.start + expandPreviewCount - 1)}
-                expandLabel={t.expandSection}
-                expandChunkLabel={t.expandLines.replace('{count}', expandPreviewCount.toLocaleString())}
+                activeFilters={activeFilters}
+                disableSyntaxHighlight={disableSyntaxHighlight}
+                diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
               />
             );
-          }
-          const diffIdx = diffIndexMap.get(item.lineIndex);
-          return (
-            <InlineDiffLine
-              key={`line-${item.lineIndex}`}
-              line={item.line}
-              lineNumberWidth={lineNumberWidth}
-              activeFilters={activeFilters}
-              disableSyntaxHighlight={disableSyntaxHighlight}
-              diffPath={diffIdx !== undefined ? `diff-${diffIdx}` : undefined}
-            />
-          );
-        }}
-        components={{ List: VirtuosoList }}
-      />
+          }}
+          components={{ List: VirtuosoList }}
+        />
+      </div>
+      {showChunkList && (
+        <div className="md:w-64 border-t md:border-t-0 md:border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+          <DiffChunkList
+            title={t.chunkListTitle}
+            summary={t.chunkCountLabel.replace('{count}', chunkItems.length.toString())}
+            chunks={chunkItems}
+            activeDiffIndex={activeDiffIndex}
+            onSelect={onNavigate}
+            className="h-full"
+          />
+        </div>
+      )}
     </div>
   );
 }

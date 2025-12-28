@@ -156,6 +156,19 @@ export interface Translations {
   collapsedLines: string;
   expandSection: string;
   expandLines: string;
+  overviewModeLabel: string;
+  overviewModeAuto: string;
+  overviewModeMinimap: string;
+  overviewModeHybrid: string;
+  overviewModeChunks: string;
+  overviewModeAutoHint: string;
+  overviewCoverageLabel: string;
+  overviewHighDensity: string;
+  overviewHighDensityHint: string;
+  chunkListTitle: string;
+  chunkCountLabel: string;
+  chunkLabel: string;
+  chunkRangeLabel: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -310,6 +323,19 @@ export const translations: Record<Language, Translations> = {
     collapsedLines: 'Collapsed {count} lines',
     expandSection: 'Expand section',
     expandLines: 'Expand {count} lines',
+    overviewModeLabel: 'Overview',
+    overviewModeAuto: 'Auto',
+    overviewModeMinimap: 'Minimap',
+    overviewModeHybrid: 'Hybrid',
+    overviewModeChunks: 'Chunks',
+    overviewModeAutoHint: 'Auto: {mode}',
+    overviewCoverageLabel: 'Coverage {percent}%',
+    overviewHighDensity: 'High density',
+    overviewHighDensityHint: 'High coverage detected, switched to chunk mode.',
+    chunkListTitle: 'Diff chunks',
+    chunkCountLabel: '{count} chunks',
+    chunkLabel: 'Chunk',
+    chunkRangeLabel: 'Lines {start}-{end}',
   },
 
   'zh-TW': {
@@ -463,6 +489,19 @@ export const translations: Record<Language, Translations> = {
     collapsedLines: '已收合 {count} 行',
     expandSection: '展開區段',
     expandLines: '展開 {count} 行',
+    overviewModeLabel: '導覽模式',
+    overviewModeAuto: '自動',
+    overviewModeMinimap: '縮略條',
+    overviewModeHybrid: '混合',
+    overviewModeChunks: '段落',
+    overviewModeAutoHint: '自動：{mode}',
+    overviewCoverageLabel: '覆蓋率 {percent}%',
+    overviewHighDensity: '高密度',
+    overviewHighDensityHint: '差異覆蓋過高，已切換段落模式。',
+    chunkListTitle: '差異段落',
+    chunkCountLabel: '共 {count} 段',
+    chunkLabel: '段落',
+    chunkRangeLabel: '行 {start}-{end}',
   },
 
   'zh-CN': {
@@ -616,6 +655,19 @@ export const translations: Record<Language, Translations> = {
     collapsedLines: '已折叠 {count} 行',
     expandSection: '展开区段',
     expandLines: '展开 {count} 行',
+    overviewModeLabel: '导覽模式',
+    overviewModeAuto: '自动',
+    overviewModeMinimap: '缩略条',
+    overviewModeHybrid: '混合',
+    overviewModeChunks: '段落',
+    overviewModeAutoHint: '自动：{mode}',
+    overviewCoverageLabel: '覆盖率 {percent}%',
+    overviewHighDensity: '高密度',
+    overviewHighDensityHint: '差异覆盖过高，已切换段落模式。',
+    chunkListTitle: '差异段落',
+    chunkCountLabel: '共 {count} 段',
+    chunkLabel: '段落',
+    chunkRangeLabel: '行 {start}-{end}',
   },
 };
 

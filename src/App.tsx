@@ -79,6 +79,50 @@ const SAMPLE_XML_B = `<?xml version="1.0" encoding="UTF-8"?>
 </bookstore>`;
 
 const LARGE_FILE_CHAR_THRESHOLD = 1_000_000;
+type OverviewMode = 'minimap' | 'hybrid' | 'chunks';
+type OverviewModePreference = 'auto' | OverviewMode;
+
+const OVERVIEW_THRESHOLDS = {
+  min: 0.4,
+  max: 0.8,
+  chunkCount: 200,
+};
+
+function countChunksFromOps(ops?: LineDiffOp[]): number {
+  if (!ops || ops.length === 0) return 0;
+  let count = 0;
+  let inChunk = false;
+  for (const op of ops) {
+    const isDiff = op.type !== 'equal';
+    if (isDiff && !inChunk) {
+      count += 1;
+      inChunk = true;
+      continue;
+    }
+    if (!isDiff) {
+      inChunk = false;
+    }
+  }
+  return count;
+}
+
+function countChunksFromInline(lines?: UnifiedDiffLine[]): number {
+  if (!lines || lines.length === 0) return 0;
+  let count = 0;
+  let inChunk = false;
+  for (const line of lines) {
+    const isDiff = line.type !== 'context';
+    if (isDiff && !inChunk) {
+      count += 1;
+      inChunk = true;
+      continue;
+    }
+    if (!isDiff) {
+      inChunk = false;
+    }
+  }
+  return count;
+}
 
 function AppContent() {
   const { t } = useLanguage();
@@ -103,6 +147,7 @@ function AppContent() {
   const [showFullInputBOverride, setShowFullInputBOverride] = useState<boolean | null>(null);
   const [largeFileModeOverride, setLargeFileModeOverride] = useState<boolean | null>(null);
   const [viewSwitching, setViewSwitching] = useState(false);
+  const [overviewModePref, setOverviewModePref] = useState<OverviewModePreference>('auto');
 
   // Filter state - which diff types to show (unchanged is always shown, not a filter)
   const [activeFilters, setActiveFilters] = useState<Set<DiffType>>(
@@ -169,11 +214,70 @@ function AppContent() {
     if (activeView === 'tree') return t.treeView;
     return t.sideBySide;
   }, [activeView, t]);
+  const lineCoverage = useMemo(() => {
+    if (!lineLevelStats.total) return 0;
+    return (lineLevelStats.added + lineLevelStats.removed + lineLevelStats.modified) / lineLevelStats.total;
+  }, [lineLevelStats]);
+  const inlineCoverage = useMemo(() => {
+    if (!inlineStats?.total) return 0;
+    return (inlineStats.added + inlineStats.removed) / inlineStats.total;
+  }, [inlineStats]);
+  const treeCoverage = useMemo(() => {
+    if (!treeSummary?.total) return 0;
+    return (treeSummary.added + treeSummary.removed + treeSummary.modified) / treeSummary.total;
+  }, [treeSummary]);
+  const activeCoverage = useMemo(() => {
+    if (activeView === 'inline') return inlineCoverage;
+    if (activeView === 'tree') return treeCoverage;
+    return lineCoverage;
+  }, [activeView, inlineCoverage, lineCoverage, treeCoverage]);
+  const sideChunkCount = useMemo(() => countChunksFromOps(lineDiffOps), [lineDiffOps]);
+  const inlineChunkCount = useMemo(() => countChunksFromInline(inlineLineDiff), [inlineLineDiff]);
+  const activeChunkCount = useMemo(() => {
+    if (activeView === 'inline') return inlineChunkCount;
+    if (activeView === 'tree') return treeNavCount;
+    return sideChunkCount;
+  }, [activeView, inlineChunkCount, sideChunkCount, treeNavCount]);
+  const autoOverviewMode: OverviewMode = useMemo(() => {
+    if (activeCoverage > OVERVIEW_THRESHOLDS.max || activeChunkCount > OVERVIEW_THRESHOLDS.chunkCount) {
+      return 'chunks';
+    }
+    if (activeCoverage >= OVERVIEW_THRESHOLDS.min) return 'hybrid';
+    return 'minimap';
+  }, [activeChunkCount, activeCoverage]);
+  const overviewMode: OverviewMode = overviewModePref === 'auto' ? autoOverviewMode : overviewModePref;
 
   // Filter diff results based on active filters
   const filteredDiffResults = useMemo(() => {
     return diffResults.filter(result => activeFilters.has(result.type));
   }, [diffResults, activeFilters]);
+
+  const overviewCoverageText = t.overviewCoverageLabel.replace(
+    '{percent}',
+    Math.round(activeCoverage * 100).toString()
+  );
+  const showOverviewControls = activeView === 'side-by-side' || activeView === 'inline';
+  const showOverviewHint =
+    overviewModePref === 'auto' &&
+    overviewMode === 'chunks' &&
+    (activeCoverage > 0 || activeChunkCount > 0);
+  const overviewModeOptions = useMemo(
+    () => [
+      { value: 'auto' as const, label: t.overviewModeAuto },
+      { value: 'minimap' as const, label: t.overviewModeMinimap },
+      { value: 'hybrid' as const, label: t.overviewModeHybrid },
+      { value: 'chunks' as const, label: t.overviewModeChunks },
+    ],
+    [t]
+  );
+  const overviewModeLabels = useMemo(
+    () => ({
+      minimap: t.overviewModeMinimap,
+      hybrid: t.overviewModeHybrid,
+      chunks: t.overviewModeChunks,
+    }),
+    [t]
+  );
   
   const resetLineDiffState = useCallback(() => {
     setLineDiffOps([]);
@@ -322,6 +426,14 @@ function AppContent() {
   const handleXmlBChange = useCallback((value: string) => {
     inputPanelEditedBRef.current = true;
     setXmlB(value);
+  }, []);
+
+  const handleXmlAUpload = useCallback(() => {
+    setOverviewModePref('auto');
+  }, []);
+
+  const handleXmlBUpload = useCallback(() => {
+    setOverviewModePref('auto');
   }, []);
 
   // Handle batch folder selection
@@ -586,6 +698,7 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, [activeView, isLargeFileMode]);
 
+
   useEffect(() => {
     if (!isLargeInputA) {
       setShowFullInputAOverride(null);
@@ -655,6 +768,7 @@ function AppContent() {
                   label={t.xmlALabel}
                   value={xmlA}
                   onChange={handleXmlAChange}
+                  onUpload={handleXmlAUpload}
                   error={parseResultA.error}
                   placeholder={t.xmlAPlaceholder}
                   isLarge={isLargeInputA}
@@ -681,6 +795,7 @@ function AppContent() {
                   label={t.xmlBLabel}
                   value={xmlB}
                   onChange={handleXmlBChange}
+                  onUpload={handleXmlBUpload}
                   error={parseResultB.error}
                   placeholder={t.xmlBPlaceholder}
                   isLarge={isLargeInputB}
@@ -807,6 +922,45 @@ function AppContent() {
                 treeSummary={activeView === 'tree' ? treeSummary : undefined}
                 compact
               />
+              {showOverviewControls && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    {t.overviewModeLabel}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/30 p-1">
+                    {overviewModeOptions.map(option => {
+                      const isActive = overviewModePref === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setOverviewModePref(option.value)}
+                          className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                            isActive
+                              ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="text-[10px] text-[var(--color-text-muted)]">
+                    {overviewCoverageText}
+                  </span>
+                  {overviewModePref === 'auto' && (
+                    <span className="text-[10px] text-[var(--color-text-muted)]">
+                      {t.overviewModeAutoHint.replace('{mode}', overviewModeLabels[overviewMode])}
+                    </span>
+                  )}
+                  {showOverviewHint && (
+                    <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">
+                      {t.overviewHighDensityHint}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -836,6 +990,7 @@ function AppContent() {
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}
                 contextLines={3}
+                overviewMode={overviewMode}
               />
             )}
             {activeView === 'inline' && (
@@ -854,6 +1009,7 @@ function AppContent() {
                 progressiveRender={isLargeFileMode}
                 collapseUnchanged={isLargeFileMode}
                 contextLines={3}
+                overviewMode={overviewMode}
               />
             )}
             {activeView === 'tree' && (

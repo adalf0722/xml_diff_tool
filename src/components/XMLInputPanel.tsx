@@ -13,6 +13,7 @@ interface XMLInputPanelProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  onUpload?: (value: string) => void;
   error?: string | null;
   placeholder?: string;
   isLarge?: boolean;
@@ -27,6 +28,7 @@ export function XMLInputPanel({
   label,
   value,
   onChange,
+  onUpload,
   error,
   placeholder,
   isLarge = false,
@@ -62,13 +64,14 @@ export function XMLInputPanel({
       const content = e.target?.result as string;
       if (content) {
         onChange(content);
+        onUpload?.(content);
       }
     };
     reader.onerror = () => {
       console.error('Error reading file');
     };
     reader.readAsText(file);
-  }, [onChange]);
+  }, [onChange, onUpload]);
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
