@@ -89,6 +89,9 @@ export interface Translations {
   download: string;
   downloadHtml: string;
   downloadText: string;
+  downloadSide: string;
+  downloadInline: string;
+  downloadTree: string;
 
   // Filter hints
   modifiedNotAvailableInline: string;
@@ -259,6 +262,9 @@ export const translations: Record<Language, Translations> = {
     download: 'Download',
     downloadHtml: 'HTML Report',
     downloadText: 'Text Report',
+    downloadSide: 'Side-by-Side Summary',
+    downloadInline: 'Inline Summary',
+    downloadTree: 'Tree Summary',
 
     // Filter hints
     modifiedNotAvailableInline: '"Modified" filter is not available in inline view (use Added/Removed instead)',
@@ -428,6 +434,9 @@ export const translations: Record<Language, Translations> = {
     download: '下載',
     downloadHtml: 'HTML 報告',
     downloadText: '文字報告',
+    downloadSide: '並排摘要',
+    downloadInline: '內聯摘要',
+    downloadTree: '樹狀摘要',
 
     // Filter hints
     modifiedNotAvailableInline: '「修改」篩選器不適用於內聯視圖（請使用新增/刪除）',
@@ -597,6 +606,9 @@ export const translations: Record<Language, Translations> = {
     download: '下载',
     downloadHtml: 'HTML 报告',
     downloadText: '文本报告',
+    downloadSide: '并排摘要',
+    downloadInline: '内联摘要',
+    downloadTree: '树状摘要',
 
     // Filter hints
     modifiedNotAvailableInline: '"修改"筛选器不适用于内联视图（请使用新增/删除）',

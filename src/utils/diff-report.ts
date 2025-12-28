@@ -1,34 +1,59 @@
-/**
+﻿/**
  * Diff Report Generator
  * Generates downloadable diff reports in HTML and Text formats
  */
 
 import type { DiffResult } from '../core/xml-diff';
-import { getDiffSummary } from '../core/xml-diff';
+import { generateLineDiff, getDiffSummary } from '../core/xml-diff';
+import { prettyPrintXML } from './pretty-print';
+import { diffLines } from './line-diff';
+
+export type DiffReportType = 'side' | 'inline' | 'node';
+export type DiffReportFormat = 'html' | 'text';
+
+export interface DiffReportSummary {
+  added: number;
+  removed: number;
+  modified: number;
+  unchanged: number;
+  total: number;
+}
+
+interface DiffReportOptions {
+  diffResults: DiffResult[];
+  reportType: DiffReportType;
+  format: DiffReportFormat;
+  xmlA?: string;
+  xmlB?: string;
+  summaryOverride?: DiffReportSummary;
+}
 
 /**
  * Generate and download a diff report
  */
-export function generateDiffReport(
-  diffResults: DiffResult[],
-  xmlA: string,
-  xmlB: string,
-  format: 'html' | 'text'
-) {
+export function generateDiffReport({
+  diffResults,
+  reportType,
+  format,
+  xmlA,
+  xmlB,
+  summaryOverride,
+}: DiffReportOptions) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `xml-diff-${timestamp}.${format === 'html' ? 'html' : 'txt'}`;
-  
+  const typeLabel = reportType === 'side' ? 'side' : reportType === 'inline' ? 'inline' : 'nodes';
+  const filename = `xml-diff-${typeLabel}-${timestamp}.${format === 'html' ? 'html' : 'txt'}`;
+
   let content: string;
   let mimeType: string;
-  
+
   if (format === 'html') {
-    content = generateHtmlReport(diffResults, xmlA, xmlB);
+    content = generateHtmlReport(diffResults, reportType, xmlA, xmlB, summaryOverride);
     mimeType = 'text/html';
   } else {
-    content = generateTextReport(diffResults, xmlA, xmlB);
+    content = generateTextReport(diffResults, reportType, xmlA, xmlB, summaryOverride);
     mimeType = 'text/plain';
   }
-  
+
   // Create and trigger download
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -46,14 +71,146 @@ export function generateDiffReport(
  */
 function generateHtmlReport(
   diffResults: DiffResult[],
-  xmlA: string,
-  xmlB: string
+  reportType: DiffReportType,
+  xmlA?: string,
+  xmlB?: string,
+  summaryOverride?: DiffReportSummary
 ): string {
-  const summary = getDiffSummary(diffResults);
+  if (reportType === 'side') {
+    return generateSideHtmlReport(xmlA, xmlB);
+  }
+  if (reportType === 'inline') {
+    return generateInlineHtmlReport(xmlA, xmlB);
+  }
+  return generateNodeHtmlReport(diffResults, summaryOverride);
+}
+
+function buildInlineSummary(lines: ReturnType<typeof generateLineDiff>): DiffReportSummary {
+  let added = 0;
+  let removed = 0;
+  let unchanged = 0;
+
+  for (const line of lines) {
+    if (line.type === 'added') added += 1;
+    else if (line.type === 'removed') removed += 1;
+    else if (line.type === 'context') unchanged += 1;
+  }
+
+  return {
+    added,
+    removed,
+    modified: 0,
+    unchanged,
+    total: added + removed + unchanged,
+  };
+}
+
+interface SideBySideEntry {
+  type: 'added' | 'removed' | 'modified';
+  oldLine: number | null;
+  newLine: number | null;
+  oldContent: string | null;
+  newContent: string | null;
+}
+
+function buildSideBySideEntries(xmlA?: string, xmlB?: string): {
+  entries: SideBySideEntry[];
+  summary: DiffReportSummary;
+} {
+  const formattedA = prettyPrintXML(xmlA ?? '');
+  const formattedB = prettyPrintXML(xmlB ?? '');
+  const ops = diffLines(formattedA.split('\n'), formattedB.split('\n')).ops;
+
+  let added = 0;
+  let removed = 0;
+  let modified = 0;
+  let unchanged = 0;
+  let oldLine = 0;
+  let newLine = 0;
+  const entries: SideBySideEntry[] = [];
+
+  let idx = 0;
+  while (idx < ops.length) {
+    if (ops[idx].type === 'equal') {
+      unchanged += 1;
+      oldLine += 1;
+      newLine += 1;
+      idx += 1;
+      continue;
+    }
+
+    const removedLines: Array<{ line: number; content: string }> = [];
+    const addedLines: Array<{ line: number; content: string }> = [];
+
+    while (idx < ops.length && ops[idx].type !== 'equal') {
+      const op = ops[idx];
+      if (op.type === 'delete') {
+        oldLine += 1;
+        removedLines.push({ line: oldLine, content: op.line });
+      } else {
+        newLine += 1;
+        addedLines.push({ line: newLine, content: op.line });
+      }
+      idx += 1;
+    }
+
+    const pairCount = Math.max(removedLines.length, addedLines.length);
+    for (let i = 0; i < pairCount; i += 1) {
+      const removedLine = removedLines[i];
+      const addedLine = addedLines[i];
+      if (removedLine && addedLine) {
+        modified += 1;
+        entries.push({
+          type: 'modified',
+          oldLine: removedLine.line,
+          newLine: addedLine.line,
+          oldContent: removedLine.content,
+          newContent: addedLine.content,
+        });
+      } else if (removedLine) {
+        removed += 1;
+        entries.push({
+          type: 'removed',
+          oldLine: removedLine.line,
+          newLine: null,
+          oldContent: removedLine.content,
+          newContent: null,
+        });
+      } else if (addedLine) {
+        added += 1;
+        entries.push({
+          type: 'added',
+          oldLine: null,
+          newLine: addedLine.line,
+          oldContent: null,
+          newContent: addedLine.content,
+        });
+      }
+    }
+  }
+
+  return {
+    entries,
+    summary: {
+      added,
+      removed,
+      modified,
+      unchanged,
+      total: added + removed + modified + unchanged,
+    },
+  };
+}
+
+function generateInlineHtmlReport(xmlA?: string, xmlB?: string): string {
   const timestamp = new Date().toLocaleString();
-  
-  const changedResults = diffResults.filter(r => r.type !== 'unchanged');
-  
+  const oldXml = xmlA ?? '';
+  const newXml = xmlB ?? '';
+  const formattedA = prettyPrintXML(oldXml);
+  const formattedB = prettyPrintXML(newXml);
+  const allLines = generateLineDiff(formattedA, formattedB);
+  const summary = buildInlineSummary(allLines);
+  const diffLines = allLines.filter(line => line.type !== 'context');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,7 +229,6 @@ function generateHtmlReport(
     .container { max-width: 1200px; margin: 0 auto; }
     h1 { color: #f1f5f9; margin-bottom: 0.5rem; }
     .timestamp { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
-    
     .summary {
       display: flex;
       gap: 1rem;
@@ -89,7 +245,180 @@ function generateHtmlReport(
     .stat-removed { background: rgba(239,68,68,0.2); color: #f87171; }
     .stat-modified { background: rgba(234,179,8,0.2); color: #facc15; }
     .stat-unchanged { background: rgba(100,116,139,0.2); color: #94a3b8; }
-    
+    .diff-list { margin-top: 2rem; }
+    .diff-item {
+      background: #1e293b;
+      border-radius: 0.5rem;
+      margin-bottom: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.8125rem;
+    }
+    .diff-item.added { border-left: 3px solid #4ade80; }
+    .diff-item.removed { border-left: 3px solid #f87171; }
+    .diff-meta { color: #94a3b8; margin-bottom: 0.25rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>XML Diff Inline Summary</h1>
+    <p class="timestamp">Generated: ${timestamp}</p>
+    <div class="summary">
+      <div class="stat stat-added">+ Added: ${summary.added}</div>
+      <div class="stat stat-removed">- Removed: ${summary.removed}</div>
+      <div class="stat stat-modified">~ Modified: ${summary.modified}</div>
+      <div class="stat stat-unchanged">= Unchanged: ${summary.unchanged}</div>
+    </div>
+    <div class="diff-list">
+      <h2 style="color: #94a3b8; margin-bottom: 1rem;">Line Changes (${diffLines.length})</h2>
+      ${diffLines.map(line => `
+        <div class="diff-item ${line.type}">
+          <div class="diff-meta">
+            ${line.type.toUpperCase()} | old: ${line.lineNumber.old ?? '-'} | new: ${line.lineNumber.new ?? '-'}
+          </div>
+          <div>${escapeHtml(line.content)}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function generateSideHtmlReport(xmlA?: string, xmlB?: string): string {
+  const timestamp = new Date().toLocaleString();
+  const { entries, summary } = buildSideBySideEntries(xmlA, xmlB);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XML Diff Report - ${timestamp}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #f1f5f9; margin-bottom: 0.5rem; }
+    .timestamp { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
+    .summary {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .stat {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .stat-added { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .stat-removed { background: rgba(239,68,68,0.2); color: #f87171; }
+    .stat-modified { background: rgba(234,179,8,0.2); color: #facc15; }
+    .stat-unchanged { background: rgba(100,116,139,0.2); color: #94a3b8; }
+    .diff-list { margin-top: 2rem; }
+    .diff-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .diff-cell {
+      background: #1e293b;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.8125rem;
+      border-left: 3px solid transparent;
+    }
+    .diff-cell.added { border-color: #4ade80; }
+    .diff-cell.removed { border-color: #f87171; }
+    .diff-cell.modified { border-color: #facc15; }
+    .diff-meta { color: #94a3b8; margin-bottom: 0.25rem; }
+    .diff-empty { color: #64748b; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>XML Diff Side-by-Side Summary</h1>
+    <p class="timestamp">Generated: ${timestamp}</p>
+    <div class="summary">
+      <div class="stat stat-added">+ Added: ${summary.added}</div>
+      <div class="stat stat-removed">- Removed: ${summary.removed}</div>
+      <div class="stat stat-modified">~ Modified: ${summary.modified}</div>
+      <div class="stat stat-unchanged">= Unchanged: ${summary.unchanged}</div>
+    </div>
+    <div class="diff-list">
+      <h2 style="color: #94a3b8; margin-bottom: 1rem;">Paired Changes (${entries.length})</h2>
+      ${entries.map(entry => `
+        <div class="diff-row">
+          <div class="diff-cell ${entry.type}">
+            <div class="diff-meta">A | line: ${entry.oldLine ?? '-'}</div>
+            <div>${entry.oldContent ? escapeHtml(entry.oldContent) : '<span class="diff-empty">(empty)</span>'}</div>
+          </div>
+          <div class="diff-cell ${entry.type}">
+            <div class="diff-meta">B | line: ${entry.newLine ?? '-'}</div>
+            <div>${entry.newContent ? escapeHtml(entry.newContent) : '<span class="diff-empty">(empty)</span>'}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function generateNodeHtmlReport(
+  diffResults: DiffResult[],
+  summaryOverride?: DiffReportSummary
+): string {
+  const summary = summaryOverride ?? getDiffSummary(diffResults);
+  const timestamp = new Date().toLocaleString();
+  const changedResults = diffResults.filter(r => r.type !== 'unchanged');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XML Diff Report - ${timestamp}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #f1f5f9; margin-bottom: 0.5rem; }
+    .timestamp { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
+
+    .summary {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .stat {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .stat-added { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .stat-removed { background: rgba(239,68,68,0.2); color: #f87171; }
+    .stat-modified { background: rgba(234,179,8,0.2); color: #facc15; }
+    .stat-unchanged { background: rgba(100,116,139,0.2); color: #94a3b8; }
+
     .diff-list { margin-top: 2rem; }
     .diff-item {
       background: #1e293b;
@@ -106,7 +435,7 @@ function generateHtmlReport(
     .diff-header.added { background: rgba(34,197,94,0.15); color: #4ade80; }
     .diff-header.removed { background: rgba(239,68,68,0.15); color: #f87171; }
     .diff-header.modified { background: rgba(234,179,8,0.15); color: #facc15; }
-    
+
     .diff-content {
       padding: 1rem;
       font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -117,42 +446,20 @@ function generateHtmlReport(
     .diff-value { color: #e2e8f0; }
     .diff-value.old { color: #f87171; }
     .diff-value.new { color: #4ade80; }
-    
-    .xml-section {
-      margin-top: 3rem;
-      background: #1e293b;
-      border-radius: 0.5rem;
-      overflow: hidden;
-    }
-    .xml-section h2 {
-      padding: 0.75rem 1rem;
-      background: #334155;
-      font-size: 0.875rem;
-      color: #94a3b8;
-    }
-    .xml-content {
-      padding: 1rem;
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      font-size: 0.75rem;
-      white-space: pre-wrap;
-      word-break: break-all;
-      max-height: 400px;
-      overflow-y: auto;
-    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>XML Diff Report</h1>
+    <h1>XML Diff Node Summary</h1>
     <p class="timestamp">Generated: ${timestamp}</p>
-    
+
     <div class="summary">
       <div class="stat stat-added">+ Added: ${summary.added}</div>
       <div class="stat stat-removed">- Removed: ${summary.removed}</div>
       <div class="stat stat-modified">~ Modified: ${summary.modified}</div>
       <div class="stat stat-unchanged">= Unchanged: ${summary.unchanged}</div>
     </div>
-    
+
     <div class="diff-list">
       <h2 style="color: #94a3b8; margin-bottom: 1rem;">Changes (${changedResults.length})</h2>
       ${changedResults.map(diff => `
@@ -188,8 +495,8 @@ function generateHtmlReport(
                   <div class="diff-row" style="margin-left: 1rem;">
                     <span class="diff-label">${attr.name}:</span>
                     <span class="diff-value ${attr.type === 'added' ? 'new' : attr.type === 'removed' ? 'old' : ''}">${
-                      attr.type === 'modified' 
-                        ? `${escapeHtml(attr.oldValue || '')} → ${escapeHtml(attr.newValue || '')}`
+                      attr.type === 'modified'
+                        ? `${escapeHtml(attr.oldValue || '')} ??${escapeHtml(attr.newValue || '')}`
                         : escapeHtml(attr.newValue || attr.oldValue || '')
                     }</span>
                   </div>
@@ -199,16 +506,6 @@ function generateHtmlReport(
           </div>
         </div>
       `).join('')}
-    </div>
-    
-    <div class="xml-section">
-      <h2>Original XML (A)</h2>
-      <pre class="xml-content">${escapeHtml(xmlA)}</pre>
-    </div>
-    
-    <div class="xml-section">
-      <h2>New XML (B)</h2>
-      <pre class="xml-content">${escapeHtml(xmlB)}</pre>
     </div>
   </div>
 </body>
@@ -220,15 +517,104 @@ function generateHtmlReport(
  */
 function generateTextReport(
   diffResults: DiffResult[],
-  xmlA: string,
-  xmlB: string
+  reportType: DiffReportType,
+  xmlA?: string,
+  xmlB?: string,
+  summaryOverride?: DiffReportSummary
 ): string {
-  const summary = getDiffSummary(diffResults);
+  if (reportType === 'side') {
+    return generateSideTextReport(xmlA, xmlB);
+  }
+  if (reportType === 'inline') {
+    return generateInlineTextReport(xmlA, xmlB);
+  }
+  return generateNodeTextReport(diffResults, summaryOverride);
+}
+
+function generateInlineTextReport(xmlA?: string, xmlB?: string): string {
+  const timestamp = new Date().toLocaleString();
+  const separator = '='.repeat(60);
+  const formattedA = prettyPrintXML(xmlA ?? '');
+  const formattedB = prettyPrintXML(xmlB ?? '');
+  const allLines = generateLineDiff(formattedA, formattedB);
+  const summary = buildInlineSummary(allLines);
+  const diffLines = allLines.filter(line => line.type !== 'context');
+
+  let report = `XML DIFF INLINE REPORT
+${separator}
+Generated: ${timestamp}
+
+SUMMARY
+${'-'.repeat(30)}
++ Added:     ${summary.added}
+- Removed:   ${summary.removed}
+~ Modified:  ${summary.modified}
+= Unchanged: ${summary.unchanged}
+  Total:     ${summary.total}
+
+LINE CHANGES (${diffLines.length})
+${separator}
+`;
+
+  for (const line of diffLines) {
+    const typeSymbol = line.type === 'added' ? '+' : '-';
+    const oldLine = line.lineNumber.old ?? '-';
+    const newLine = line.lineNumber.new ?? '-';
+    report += `[${typeSymbol}] old:${oldLine} new:${newLine} ${line.content}\n`;
+  }
+
+  return report;
+}
+
+function generateSideTextReport(xmlA?: string, xmlB?: string): string {
+  const timestamp = new Date().toLocaleString();
+  const separator = '='.repeat(60);
+  const { entries, summary } = buildSideBySideEntries(xmlA, xmlB);
+
+  let report = `XML DIFF SIDE-BY-SIDE REPORT
+${separator}
+Generated: ${timestamp}
+
+SUMMARY
+${'-'.repeat(30)}
++ Added:     ${summary.added}
+- Removed:   ${summary.removed}
+~ Modified:  ${summary.modified}
+= Unchanged: ${summary.unchanged}
+  Total:     ${summary.total}
+
+PAIRED CHANGES (${entries.length})
+${separator}
+`;
+
+  for (const entry of entries) {
+    const typeSymbol = entry.type === 'added' ? '+' : entry.type === 'removed' ? '-' : '~';
+    report += `[${typeSymbol}] A:${entry.oldLine ?? '-'} B:${entry.newLine ?? '-'}\n`;
+    if (entry.oldContent) {
+      report += `    A: ${entry.oldContent}\n`;
+    } else {
+      report += `    A: (empty)\n`;
+    }
+    if (entry.newContent) {
+      report += `    B: ${entry.newContent}\n`;
+    } else {
+      report += `    B: (empty)\n`;
+    }
+  }
+
+  return report;
+}
+
+function generateNodeTextReport(
+  diffResults: DiffResult[],
+  summaryOverride?: DiffReportSummary
+): string {
+  const summary = summaryOverride ?? getDiffSummary(diffResults);
   const timestamp = new Date().toLocaleString();
   const separator = '='.repeat(60);
   const changedResults = diffResults.filter(r => r.type !== 'unchanged');
-  
-  let report = `XML DIFF REPORT
+
+  let report = `XML DIFF NODE REPORT
 ${separator}
 Generated: ${timestamp}
 
@@ -247,7 +633,7 @@ ${separator}
   for (const diff of changedResults) {
     const typeSymbol = diff.type === 'added' ? '+' : diff.type === 'removed' ? '-' : '~';
     report += `\n[${typeSymbol}] ${diff.type.toUpperCase()}: ${diff.path}\n`;
-    
+
     if (diff.type === 'modified') {
       report += `    Old: ${diff.oldValue || '(empty)'}\n`;
       report += `    New: ${diff.newValue || '(empty)'}\n`;
@@ -256,12 +642,12 @@ ${separator}
     } else {
       report += `    Value: ${diff.oldValue || '(element)'}\n`;
     }
-    
+
     if (diff.attributeChanges.length > 0) {
       report += `    Attribute changes:\n`;
       for (const attr of diff.attributeChanges) {
         if (attr.type === 'modified') {
-          report += `      ${attr.name}: ${attr.oldValue} → ${attr.newValue}\n`;
+          report += `      ${attr.name}: ${attr.oldValue} ??${attr.newValue}\n`;
         } else if (attr.type === 'added') {
           report += `      + ${attr.name}: ${attr.newValue}\n`;
         } else {
@@ -270,17 +656,6 @@ ${separator}
       }
     }
   }
-
-  report += `
-
-ORIGINAL XML (A)
-${separator}
-${xmlA}
-
-NEW XML (B)
-${separator}
-${xmlB}
-`;
 
   return report;
 }
@@ -296,4 +671,3 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
-

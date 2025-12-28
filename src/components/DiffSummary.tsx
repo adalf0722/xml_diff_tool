@@ -8,7 +8,7 @@ import { Plus, Minus, RefreshCw, Equal, Download, ChevronDown, RotateCcw } from 
 import { getDiffSummary, generateLineDiff } from '../core/xml-diff';
 import type { DiffResult, DiffType } from '../core/xml-diff';
 import { useLanguage } from '../contexts/LanguageContext';
-import { generateDiffReport } from '../utils/diff-report';
+import { generateDiffReport, type DiffReportFormat, type DiffReportType } from '../utils/diff-report';
 import type { ViewMode } from './ViewTabs';
 import { prettyPrintXML } from '../utils/pretty-print';
 
@@ -100,10 +100,44 @@ export function DiffSummary({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleDownload = (format: 'html' | 'text') => {
-    generateDiffReport(diffResults, xmlA, xmlB, format);
+  const handleDownload = (reportType: DiffReportType, format: DiffReportFormat) => {
+    generateDiffReport({
+      diffResults,
+      reportType,
+      format,
+      xmlA,
+      xmlB,
+      summaryOverride: summary,
+    });
     setIsDownloadMenuOpen(false);
   };
+  const downloadOptions = useMemo(() => {
+    const options: Array<{ reportType: DiffReportType; format: DiffReportFormat; label: string }> = [];
+    if (activeView === 'tree') {
+      options.push(
+        { reportType: 'node', format: 'html', label: `${t.downloadTree} (${t.downloadHtml})` },
+        { reportType: 'node', format: 'text', label: `${t.downloadTree} (${t.downloadText})` }
+      );
+    } else if (activeView === 'inline') {
+      options.push(
+        { reportType: 'inline', format: 'html', label: `${t.downloadInline} (${t.downloadHtml})` },
+        { reportType: 'inline', format: 'text', label: `${t.downloadInline} (${t.downloadText})` }
+      );
+    } else {
+      options.push(
+        { reportType: 'side', format: 'html', label: `${t.downloadSide} (${t.downloadHtml})` },
+        { reportType: 'side', format: 'text', label: `${t.downloadSide} (${t.downloadText})` }
+      );
+    }
+    return options;
+  }, [
+    activeView,
+    t.downloadHtml,
+    t.downloadInline,
+    t.downloadSide,
+    t.downloadText,
+    t.downloadTree,
+  ]);
 
   // Unit label for stats
   const unitLabel = isLineBasedView ? t.statsLines : t.statsNodes;
@@ -201,19 +235,16 @@ export function DiffSummary({
       </button>
 
       {isDownloadMenuOpen && (
-        <div className="absolute right-0 top-full mt-1 py-1 w-36 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg shadow-lg z-50">
-          <button
-            onClick={() => handleDownload('html')}
-            className="w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-          >
-            {t.downloadHtml}
-          </button>
-          <button
-            onClick={() => handleDownload('text')}
-            className="w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-          >
-            {t.downloadText}
-          </button>
+        <div className="absolute right-0 top-full mt-1 py-1 w-48 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg shadow-lg z-50">
+          {downloadOptions.map(option => (
+            <button
+              key={`${option.reportType}-${option.format}`}
+              onClick={() => handleDownload(option.reportType, option.format)}
+              className="w-full px-4 py-2 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
