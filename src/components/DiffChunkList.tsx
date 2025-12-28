@@ -251,7 +251,11 @@ export function DiffChunkList({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-[var(--color-text-primary)]">{chunk.label}</span>
-                <span className="text-[10px] text-[var(--color-text-muted)]">{chunk.rangeLabel}</span>
+                {chunk.rangeLabel && (
+                  <span className="text-[10px] text-[var(--color-text-muted)]">
+                    {chunk.rangeLabel}
+                  </span>
+                )}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
                 {chunk.counts.added > 0 && (

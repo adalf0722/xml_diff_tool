@@ -12,6 +12,7 @@ import { buildPairedDiffTrees, expandAll, collapseAll, DIFF_KEY_ATTRS, getChange
 import type { TreeNode } from '../core/xml-tree';
 import { useLanguage } from '../contexts/LanguageContext';
 import { recordValue } from '../utils/perf-metrics';
+import { DiffChunkList, type DiffChunkItem } from './DiffChunkList';
 
 // Tree navigation grouping keys (UX): treat only real “entities” as navigable
 // - exclude `name` to avoid root like <company name="..."> swallowing the whole tree
@@ -24,6 +25,9 @@ interface TreeViewProps {
   parseResultB: ParseResult;
   isLargeFileMode?: boolean;
   activeDiffIndex?: number;
+  onNavigate?: (index: number) => void;
+  onFilterToggle?: (type: DiffType) => void;
+  onResetFilters?: () => void;
   onJumpComplete?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
   onScopeChange?: (scope: 'full' | 'diff-only') => void;
@@ -39,6 +43,12 @@ interface TreeViewProps {
 interface FlatTreeItem {
   node: TreeNode;
   depth: number;
+}
+
+interface TreeChunkCounts {
+  added: number;
+  removed: number;
+  modified: number;
 }
 
 const TreeList = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -63,6 +73,9 @@ export function TreeView({
   parseResultB,
   isLargeFileMode = false,
   activeDiffIndex,
+  onNavigate,
+  onFilterToggle,
+  onResetFilters,
   onJumpComplete,
   onNavCountChange,
   onScopeChange,
@@ -308,6 +321,37 @@ export function TreeView({
     return map;
   }, [treeB]);
 
+  const nodeMapA = useMemo(() => buildStableKeyNodeMap(treeA), [treeA]);
+  const nodeMapB = useMemo(() => buildStableKeyNodeMap(treeB), [treeB]);
+  const countsMapA = useMemo(() => buildTreeCountsMap(treeA), [treeA]);
+  const countsMapB = useMemo(() => buildTreeCountsMap(treeB), [treeB]);
+  const chunkItems: DiffChunkItem[] = useMemo(() => {
+    const items: DiffChunkItem[] = [];
+    const emptyCounts: TreeChunkCounts = { added: 0, removed: 0, modified: 0 };
+    const entries = Array.from(indexToKey.entries()).sort((a, b) => a[0] - b[0]);
+    entries.forEach(([index, key], idx) => {
+      const node = nodeMapA.get(key) ?? nodeMapB.get(key);
+      const label = formatTreeChunkLabel(node, `${t.chunkLabel} ${idx + 1}`);
+      const countsA = countsMapA.get(key) ?? emptyCounts;
+      const countsB = countsMapB.get(key) ?? emptyCounts;
+      items.push({
+        id: `tree-chunk-${index}`,
+        label,
+        rangeLabel: '',
+        diffIndexStart: index,
+        diffIndexEnd: index,
+        counts: {
+          added: Math.max(countsA.added, countsB.added),
+          removed: Math.max(countsA.removed, countsB.removed),
+          modified: Math.max(countsA.modified, countsB.modified),
+        },
+      });
+    });
+    return items;
+  }, [countsMapA, countsMapB, indexToKey, nodeMapA, nodeMapB, t.chunkLabel]);
+  const showChunkList =
+    chunkItems.length > 0 && Boolean(onNavigate && onFilterToggle && onResetFilters);
+
   useEffect(() => {
     if (activeDiffIndex === undefined || activeDiffIndex < 0) return;
     const key = indexToKey.get(activeDiffIndex);
@@ -522,60 +566,76 @@ export function TreeView({
       </div>
 
       {/* Tree panels */}
-      <div className="flex-1 flex divide-x divide-[var(--color-border)] overflow-hidden">
-        {/* Left tree - XML A */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-4 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
-            <h4 className="text-sm font-medium text-[var(--color-text-secondary)]">
-              {t.originalXml}
-            </h4>
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex divide-x divide-[var(--color-border)] overflow-hidden">
+          {/* Left tree - XML A */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="px-4 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
+              <h4 className="text-sm font-medium text-[var(--color-text-secondary)]">
+                {t.originalXml}
+              </h4>
+            </div>
+            <Virtuoso
+              ref={leftVirtuosoRef}
+              scrollerRef={setLeftScroller}
+              data={flatTreeA}
+              className="flex-1"
+              style={{ height: '100%' }}
+              itemContent={(_index: number, item: FlatTreeItem) => (
+                <TreeRow
+                  item={item}
+                  expandedNodes={expandedNodes}
+                  onToggle={handleToggle}
+                  activeFilters={activeFilters}
+                  diffIndexMap={diffIndexMap}
+                  navMode={navMode}
+                />
+              )}
+              components={{ List: TreeList }}
+            />
           </div>
-          <Virtuoso
-            ref={leftVirtuosoRef}
-            scrollerRef={setLeftScroller}
-            data={flatTreeA}
-            className="flex-1"
-            style={{ height: '100%' }}
-            itemContent={(_index: number, item: FlatTreeItem) => (
-              <TreeRow
-                item={item}
-                expandedNodes={expandedNodes}
-                onToggle={handleToggle}
-                activeFilters={activeFilters}
-                diffIndexMap={diffIndexMap}
-                navMode={navMode}
-              />
-            )}
-            components={{ List: TreeList }}
-          />
-        </div>
 
-        {/* Right tree - XML B */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-4 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
-            <h4 className="text-sm font-medium text-[var(--color-text-secondary)]">
-              {t.newXml}
-            </h4>
+          {/* Right tree - XML B */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="px-4 py-2 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
+              <h4 className="text-sm font-medium text-[var(--color-text-secondary)]">
+                {t.newXml}
+              </h4>
+            </div>
+            <Virtuoso
+              ref={rightVirtuosoRef}
+              scrollerRef={setRightScroller}
+              data={flatTreeB}
+              className="flex-1"
+              style={{ height: '100%' }}
+              itemContent={(_index: number, item: FlatTreeItem) => (
+                <TreeRow
+                  item={item}
+                  expandedNodes={expandedNodes}
+                  onToggle={handleToggle}
+                  activeFilters={activeFilters}
+                  diffIndexMap={diffIndexMap}
+                  navMode={navMode}
+                />
+              )}
+              components={{ List: TreeList }}
+            />
           </div>
-          <Virtuoso
-            ref={rightVirtuosoRef}
-            scrollerRef={setRightScroller}
-            data={flatTreeB}
-            className="flex-1"
-            style={{ height: '100%' }}
-            itemContent={(_index: number, item: FlatTreeItem) => (
-              <TreeRow
-                item={item}
-                expandedNodes={expandedNodes}
-                onToggle={handleToggle}
-                activeFilters={activeFilters}
-                diffIndexMap={diffIndexMap}
-                navMode={navMode}
-              />
-            )}
-            components={{ List: TreeList }}
-          />
         </div>
+        {showChunkList && (
+          <div className="md:w-64 border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+            <DiffChunkList
+              title={t.chunkListTitle}
+              chunks={chunkItems}
+              activeDiffIndex={activeDiffIndex}
+              activeFilters={activeFilters}
+              onFilterToggle={onFilterToggle!}
+              onResetFilters={onResetFilters!}
+              onSelect={onNavigate!}
+              className="h-full"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -638,6 +698,55 @@ function buildKeyPathMap(tree: TreeNode | null): Map<string, string[]> {
 
   traverse(tree, []);
   return map;
+}
+
+function buildStableKeyNodeMap(tree: TreeNode | null): Map<string, TreeNode> {
+  const map = new Map<string, TreeNode>();
+  if (!tree) return map;
+  const stack: TreeNode[] = [tree];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    const existing = map.get(node.stableKey);
+    if (!existing || existing.isPlaceholder) {
+      map.set(node.stableKey, node);
+    }
+    for (const child of node.children) {
+      stack.push(child);
+    }
+  }
+  return map;
+}
+
+function buildTreeCountsMap(tree: TreeNode | null): Map<string, TreeChunkCounts> {
+  const map = new Map<string, TreeChunkCounts>();
+  if (!tree) return map;
+
+  const traverse = (node: TreeNode): TreeChunkCounts => {
+    const counts: TreeChunkCounts = { added: 0, removed: 0, modified: 0 };
+    for (const child of node.children) {
+      const childCounts = traverse(child);
+      counts.added += childCounts.added;
+      counts.removed += childCounts.removed;
+      counts.modified += childCounts.modified;
+    }
+    if (node.diffType === 'added') counts.added += 1;
+    if (node.diffType === 'removed') counts.removed += 1;
+    if (node.diffType === 'modified') counts.modified += 1;
+    map.set(node.stableKey, counts);
+    return counts;
+  };
+
+  traverse(tree);
+  return map;
+}
+
+function formatTreeChunkLabel(node: TreeNode | undefined, fallback: string): string {
+  if (!node) return fallback;
+  const keyAttr = DIFF_KEY_ATTRS.find(attr => node.node.attributes[attr] !== undefined);
+  if (keyAttr) {
+    return `${node.node.name} ${keyAttr}=${node.node.attributes[keyAttr]}`;
+  }
+  return node.node.name;
 }
 
 interface TreeRowProps {

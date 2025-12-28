@@ -1024,6 +1024,9 @@ function AppContent() {
                 parseResultB={parseResultB}
                 isLargeFileMode={isLargeFileMode}
                 activeDiffIndex={currentDiffIndex}
+                onNavigate={handleNavigateToDiff}
+                onFilterToggle={handleFilterToggle}
+                onResetFilters={handleResetFilters}
                 onJumpComplete={handleJumpComplete}
                 onNavCountChange={setTreeNavCount}
                 onScopeChange={setTreeScope}
