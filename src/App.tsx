@@ -1089,7 +1089,11 @@ function AppContent() {
         <span>{t.footer}</span>
       </footer>
       {appMode === 'single' && (
-        <HelpDrawer isOpen={isHelpOpen} onClose={handleCloseHelp} onUseSample={handleUseSample} />
+        <HelpDrawer
+          isOpen={isHelpOpen}
+          onClose={handleCloseHelp}
+          onUseSample={handleUseSample}
+        />
       )}
       <PerfDebugPanel />
     </div>

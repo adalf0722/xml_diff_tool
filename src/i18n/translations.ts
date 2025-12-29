@@ -94,6 +94,15 @@ export interface Translations {
   helpTipsTitle: string;
   helpTipLargeFiles: string;
   helpTipChunks: string;
+  helpShortcutsTitle: string;
+  helpShortcutPrevNext: string;
+  helpShortcutChunkNav: string;
+  helpShortcutEscape: string;
+  helpLargeFileLimitTitle: string;
+  helpLargeFileLimitHighlight: string;
+  helpLargeFileLimitCollapsed: string;
+  helpLargeFileLimitProgressive: string;
+  helpLargeFileLimitOverride: string;
   emptyTitle: string;
   emptySubtitle: string;
   emptyStep1: string;
@@ -293,6 +302,15 @@ export const translations: Record<Language, Translations> = {
     helpTipsTitle: 'Tips',
     helpTipLargeFiles: 'Large file mode reduces rendering for performance.',
     helpTipChunks: 'Use diff chunks or minimap to jump quickly.',
+    helpShortcutsTitle: 'Common shortcuts',
+    helpShortcutPrevNext: 'P / N: previous or next diff.',
+    helpShortcutChunkNav: 'Chunk list: ↑/↓, Home/End to move; Enter/Space to jump.',
+    helpShortcutEscape: 'Esc: close the help drawer.',
+    helpLargeFileLimitTitle: 'Large file limitations',
+    helpLargeFileLimitHighlight: 'Syntax highlighting is disabled to improve performance.',
+    helpLargeFileLimitCollapsed: 'Unchanged sections may be collapsed into context windows.',
+    helpLargeFileLimitProgressive: 'Rendering is progressive while scrolling.',
+    helpLargeFileLimitOverride: 'Use "Show full rendering" to disable large file mode.',
     emptyTitle: 'Welcome to XML Diff Tool',
     emptySubtitle: 'Paste XML or start with a sample to see differences.',
     emptyStep1: 'Upload or paste XML A and XML B.',
@@ -491,6 +509,15 @@ export const translations: Record<Language, Translations> = {
     helpTipsTitle: '使用建議',
     helpTipLargeFiles: '大檔模式會降低渲染以提升效能。',
     helpTipChunks: '用段落清單或縮略條快速跳轉。',
+    helpShortcutsTitle: '常用快捷鍵',
+    helpShortcutPrevNext: 'P / N：上一個／下一個差異。',
+    helpShortcutChunkNav: '段落清單：↑/↓、Home/End 移動；Enter/Space 跳轉。',
+    helpShortcutEscape: 'Esc：關閉說明抽屜。',
+    helpLargeFileLimitTitle: '大檔模式限制',
+    helpLargeFileLimitHighlight: '為了效能，語法高亮會停用。',
+    helpLargeFileLimitCollapsed: '未變更內容可能折疊為差異視窗。',
+    helpLargeFileLimitProgressive: '捲動時採分批渲染。',
+    helpLargeFileLimitOverride: '可按「顯示完整渲染」關閉大檔模式。',
     emptyTitle: '歡迎使用 XML Diff Tool',
     emptySubtitle: '貼上 XML 或先用範例快速上手。',
     emptyStep1: '上傳或貼上 XML A 與 XML B。',
@@ -689,6 +716,15 @@ export const translations: Record<Language, Translations> = {
     helpTipsTitle: '使用建议',
     helpTipLargeFiles: '大文件模式会降低渲染以提升性能。',
     helpTipChunks: '用段落列表或缩略条快速跳转。',
+    helpShortcutsTitle: '常用快捷键',
+    helpShortcutPrevNext: 'P / N：上一个/下一个差异。',
+    helpShortcutChunkNav: '段落列表：↑/↓、Home/End 移动；Enter/Space 跳转。',
+    helpShortcutEscape: 'Esc：关闭说明抽屉。',
+    helpLargeFileLimitTitle: '大文件模式限制',
+    helpLargeFileLimitHighlight: '为性能，语法高亮会停用。',
+    helpLargeFileLimitCollapsed: '未变更内容可能折叠为差异窗口。',
+    helpLargeFileLimitProgressive: '滚动时采用分批渲染。',
+    helpLargeFileLimitOverride: '可点「显示完整渲染」关闭大文件模式。',
     emptyTitle: '欢迎使用 XML Diff Tool',
     emptySubtitle: '粘贴 XML 或先用示例快速上手。',
     emptyStep1: '上传或粘贴 XML A 与 XML B。',

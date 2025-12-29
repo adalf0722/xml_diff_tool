@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, BookOpen, Layers, FileText, Download, Sparkles } from 'lucide-react';
+import { X, BookOpen, Layers, FileText, Download, Sparkles, Keyboard, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface HelpDrawerProps {
@@ -8,7 +8,11 @@ interface HelpDrawerProps {
   onUseSample: () => void;
 }
 
-export function HelpDrawer({ isOpen, onClose, onUseSample }: HelpDrawerProps) {
+export function HelpDrawer({
+  isOpen,
+  onClose,
+  onUseSample,
+}: HelpDrawerProps) {
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -88,6 +92,31 @@ export function HelpDrawer({ isOpen, onClose, onUseSample }: HelpDrawerProps) {
                 <span className="font-semibold text-[var(--color-text-primary)]">{t.treeView}</span>
                 <span className="ml-2">{t.helpViewTree}</span>
               </li>
+            </ul>
+          </section>
+
+          <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/60 p-4">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+              <Keyboard size={16} className="text-[var(--color-accent)]" />
+              <h3 className="text-sm font-semibold">{t.helpShortcutsTitle}</h3>
+            </div>
+            <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+              <li>{t.helpShortcutPrevNext}</li>
+              <li>{t.helpShortcutChunkNav}</li>
+              <li>{t.helpShortcutEscape}</li>
+            </ul>
+          </section>
+
+          <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/60 p-4">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+              <AlertTriangle size={16} className="text-[var(--color-accent)]" />
+              <h3 className="text-sm font-semibold">{t.helpLargeFileLimitTitle}</h3>
+            </div>
+            <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+              <li>{t.helpLargeFileLimitHighlight}</li>
+              <li>{t.helpLargeFileLimitCollapsed}</li>
+              <li>{t.helpLargeFileLimitProgressive}</li>
+              <li>{t.helpLargeFileLimitOverride}</li>
             </ul>
           </section>
 
