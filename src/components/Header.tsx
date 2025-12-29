@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Code2, Globe, ChevronDown, Palette, FileText, FolderOpen } from 'lucide-react';
+import { Code2, Globe, ChevronDown, Palette, FileText, FolderOpen, HelpCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { THEME_STYLES } from '../themes';
@@ -16,9 +16,10 @@ export type AppMode = 'single' | 'batch';
 interface HeaderProps {
   mode?: AppMode;
   onModeChange?: (mode: AppMode) => void;
+  onOpenHelp?: () => void;
 }
 
-export function Header({ mode = 'single', onModeChange }: HeaderProps) {
+export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProps) {
   const { style, setStyle } = useTheme();
   const { language, setLanguage, t, languageNames, availableLanguages } = useLanguage();
   
@@ -110,6 +111,17 @@ export function Header({ mode = 'single', onModeChange }: HeaderProps) {
               {t.batchMode}
             </button>
           </div>
+        )}
+
+        {onOpenHelp && (
+          <button
+            onClick={onOpenHelp}
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)]/60 bg-[var(--color-bg-secondary)]/60 px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            title={t.help}
+          >
+            <HelpCircle size={16} className="text-[var(--color-text-muted)]" />
+            <span>{t.help}</span>
+          </button>
         )}
 
         {/* Settings Group - Preferences */}

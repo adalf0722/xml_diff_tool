@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
@@ -739,7 +739,11 @@ function AppContent() {
   return (
     <div className="flex flex-col h-screen bg-[var(--color-bg-primary)]">
       {/* Header */}
-      <Header mode={appMode} onModeChange={handleModeChange} />
+      <Header
+        mode={appMode}
+        onModeChange={handleModeChange}
+        onOpenHelp={appMode === 'single' ? handleOpenHelp : undefined}
+      />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1084,16 +1088,6 @@ function AppContent() {
       <footer className="flex items-center justify-center py-2 text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] border-t border-[var(--color-border)]">
         <span>{t.footer}</span>
       </footer>
-      {appMode === 'single' && (
-        <button
-          type="button"
-          onClick={handleOpenHelp}
-          className="fixed bottom-4 right-20 z-40 flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] shadow-sm hover:bg-[var(--color-bg-tertiary)]"
-        >
-          <HelpCircle size={14} />
-          <span className="hidden sm:inline">{t.help}</span>
-        </button>
-      )}
       {appMode === 'single' && (
         <HelpDrawer isOpen={isHelpOpen} onClose={handleCloseHelp} onUseSample={handleUseSample} />
       )}
