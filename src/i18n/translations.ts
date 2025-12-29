@@ -110,6 +110,12 @@ export interface Translations {
   emptyStep3: string;
   emptyUseSample: string;
   emptyOpenHelp: string;
+  emptyDropHint: string;
+  emptyDropHintCard: string;
+  emptyPrivacyNote: string;
+  emptySampleHint: string;
+  emptyPasteHint: string;
+  emptyStepLabel: string;
 
   // Diff badges
   badgeAdded: string;
@@ -318,6 +324,12 @@ export const translations: Record<Language, Translations> = {
     emptyStep3: 'Review changes and export a report.',
     emptyUseSample: 'Use sample XML',
     emptyOpenHelp: 'Open help',
+    emptyDropHint: 'Drag & drop XML files here',
+    emptyDropHintCard: 'Drag XML files into the A/B inputs above',
+    emptyPrivacyNote: 'All processing stays in your browser.',
+    emptySampleHint: 'Try a 30-second demo to get started.',
+    emptyPasteHint: 'Or paste XML directly into the editor.',
+    emptyStepLabel: 'Step',
 
     // Diff badges
     badgeAdded: 'Added',
@@ -525,6 +537,12 @@ export const translations: Record<Language, Translations> = {
     emptyStep3: '檢視差異並輸出報告。',
     emptyUseSample: '使用範例 XML',
     emptyOpenHelp: '開啟說明',
+    emptyDropHint: '拖拉 XML 檔案到此',
+    emptyDropHintCard: '拖拉 XML 到上方 A/B 輸入區',
+    emptyPrivacyNote: '所有處理皆在本機瀏覽器完成。',
+    emptySampleHint: '約 30 秒示範，快速上手。',
+    emptyPasteHint: '或直接貼上 XML 內容。',
+    emptyStepLabel: '步驟',
 
     // Diff badges
     badgeAdded: '新增',
@@ -732,6 +750,12 @@ export const translations: Record<Language, Translations> = {
     emptyStep3: '查看差异并导出报告。',
     emptyUseSample: '使用示例 XML',
     emptyOpenHelp: '打开说明',
+    emptyDropHint: '拖拽 XML 文件到此',
+    emptyDropHintCard: '拖拽 XML 到上方 A/B 输入区',
+    emptyPrivacyNote: '所有处理均在本地浏览器完成。',
+    emptySampleHint: '约 30 秒示范，快速上手。',
+    emptyPasteHint: '或直接粘贴 XML 内容。',
+    emptyStepLabel: '步骤',
 
     // Diff badges
     badgeAdded: '新增',

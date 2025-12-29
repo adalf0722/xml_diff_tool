@@ -40,6 +40,7 @@ export function XMLInputPanel({
 }: XMLInputPanelProps) {
   const { t } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -57,6 +58,9 @@ export function XMLInputPanel({
     const preview = value.slice(0, index);
     return index < value.length ? `${preview}\n...` : preview;
   }, [previewChars, previewLines, value]);
+
+  const showOverlay = !value && !isDragging && !isPreview && !isFocused;
+  const textareaPlaceholder = showOverlay ? '' : placeholder;
 
   const handleFileRead = useCallback((file: File) => {
     const reader = new FileReader();
@@ -220,7 +224,9 @@ export function XMLInputPanel({
             ref={textareaRef}
             value={value}
             onChange={handleTextChange}
-            placeholder={placeholder}
+            placeholder={textareaPlaceholder}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             className={`w-full h-full p-4 bg-transparent resize-none outline-none
               text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)]
               font-mono text-sm leading-relaxed
@@ -228,6 +234,18 @@ export function XMLInputPanel({
             `}
             spellCheck={false}
           />
+        )}
+
+        {showOverlay && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/80 px-4 py-3 text-center text-xs text-[var(--color-text-muted)] shadow-sm">
+              <div className="flex items-center justify-center gap-2 text-[var(--color-text-secondary)]">
+                <Upload size={16} className="text-[var(--color-accent)]" />
+                <span>{t.emptyDropHint}</span>
+              </div>
+              <div className="mt-1">{t.emptyPasteHint}</div>
+            </div>
+          </div>
         )}
 
         {/* Drag overlay */}

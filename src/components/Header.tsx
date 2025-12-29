@@ -116,11 +116,12 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
         {onOpenHelp && (
           <button
             onClick={onOpenHelp}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)]/60 bg-[var(--color-bg-secondary)]/60 px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)]/60 bg-[var(--color-bg-secondary)]/60 px-2.5 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
             title={t.help}
+            aria-label={t.help}
           >
             <HelpCircle size={16} className="text-[var(--color-text-muted)]" />
-            <span>{t.help}</span>
+            <span className="hidden sm:inline">{t.help}</span>
           </button>
         )}
 
