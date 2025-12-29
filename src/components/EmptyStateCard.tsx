@@ -1,4 +1,4 @@
-import { FileText, Layers, Download, Sparkles, Upload, ShieldCheck } from 'lucide-react';
+import { FileText, Layers, Download, Sparkles, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface EmptyStateCardProps {
@@ -24,10 +24,6 @@ export function EmptyStateCard({ onUseSample, onOpenHelp }: EmptyStateCardProps)
               {t.emptySubtitle}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-muted)]">
-              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-2 py-0.5">
-                <Upload size={12} />
-                {t.emptyDropHintCard}
-              </span>
               <span className="inline-flex items-center gap-1">
                 <ShieldCheck size={12} className="text-[var(--color-accent)]" />
                 {t.emptyPrivacyNote}
@@ -55,47 +51,43 @@ export function EmptyStateCard({ onUseSample, onOpenHelp }: EmptyStateCardProps)
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-[var(--color-border)]/80 bg-[var(--color-bg-primary)]/55 p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-xs font-semibold text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/40">
-                1
-              </span>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                  <FileText size={14} className="text-[var(--color-accent)]" />
-                  <span className="text-[10px] uppercase tracking-wide">{t.emptyStepLabel}</span>
-                </div>
-                <div className="text-sm font-semibold text-[var(--color-text-primary)]">{t.emptyStep1}</div>
+        <div className="flex flex-col gap-3 rounded-2xl border border-[var(--color-border)]/70 bg-[var(--color-bg-primary)]/55 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-accent)] text-sm font-semibold text-white shadow-sm">
+              1
+            </span>
+            <div>
+              <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                <FileText size={16} className="text-[var(--color-accent)]" />
+                <span className="text-[10px] uppercase tracking-wide">{t.emptyStepLabel}</span>
               </div>
+              <div className="text-base font-semibold text-[var(--color-text-primary)]">{t.emptyStep1}</div>
             </div>
           </div>
-          <div className="rounded-xl border border-[var(--color-border)]/80 bg-[var(--color-bg-primary)]/55 p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-xs font-semibold text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/40">
-                2
-              </span>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                  <Layers size={14} className="text-[var(--color-accent)]" />
-                  <span className="text-[10px] uppercase tracking-wide">{t.emptyStepLabel}</span>
-                </div>
-                <div className="text-sm font-semibold text-[var(--color-text-primary)]">{t.emptyStep2}</div>
+          <ArrowRight size={18} className="hidden text-[var(--color-text-muted)] sm:block" />
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-accent)] text-sm font-semibold text-white shadow-sm">
+              2
+            </span>
+            <div>
+              <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                <Layers size={16} className="text-[var(--color-accent)]" />
+                <span className="text-[10px] uppercase tracking-wide">{t.emptyStepLabel}</span>
               </div>
+              <div className="text-base font-semibold text-[var(--color-text-primary)]">{t.emptyStep2}</div>
             </div>
           </div>
-          <div className="rounded-xl border border-[var(--color-border)]/80 bg-[var(--color-bg-primary)]/55 p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-xs font-semibold text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/40">
-                3
-              </span>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                  <Download size={14} className="text-[var(--color-accent)]" />
-                  <span className="text-[10px] uppercase tracking-wide">{t.emptyStepLabel}</span>
-                </div>
-                <div className="text-sm font-semibold text-[var(--color-text-primary)]">{t.emptyStep3}</div>
+          <ArrowRight size={18} className="hidden text-[var(--color-text-muted)] sm:block" />
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-accent)] text-sm font-semibold text-white shadow-sm">
+              3
+            </span>
+            <div>
+              <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                <Download size={16} className="text-[var(--color-accent)]" />
+                <span className="text-[10px] uppercase tracking-wide">{t.emptyStepLabel}</span>
               </div>
+              <div className="text-base font-semibold text-[var(--color-text-primary)]">{t.emptyStep3}</div>
             </div>
           </div>
         </div>
