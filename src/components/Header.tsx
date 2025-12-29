@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Code2, Globe, ChevronDown, Palette, FileText, FolderOpen, HelpCircle } from 'lucide-react';
+import { Code2, Globe, ChevronDown, Palette, FileText, FolderOpen, HelpCircle, Github } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { THEME_STYLES } from '../themes';
@@ -127,6 +127,16 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
 
         {/* Settings Group - Preferences */}
         <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)]/60 rounded-lg px-1 py-0.5 border border-[var(--color-border)]/40">
+          <a
+            href="https://github.com/adalf0722/xml_diff_tool"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            title="GitHub"
+            aria-label="GitHub"
+          >
+            <Github size={18} className="text-[var(--color-text-muted)]" />
+          </a>
           {/* Theme Style Selector */}
           <div className="relative" ref={styleMenuRef}>
           <button
