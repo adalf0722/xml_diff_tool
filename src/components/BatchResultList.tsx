@@ -952,122 +952,156 @@ export function BatchResultList({
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-4 p-4 bg-[var(--color-bg-secondary)] rounded-lg border border-[var(--color-border)]">
-        <div className="flex items-center gap-2">
-          <FileText size={18} className="text-[var(--color-text-secondary)]" />
-          <span className="text-[var(--color-text-primary)] font-medium">
-            {matchResults.length} {t.filesCompared}
-          </span>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="flex min-h-[86px] items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]">
+            <FileText size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xl font-semibold text-[var(--color-text-primary)]">
+              {matchResults.length}
+            </div>
+            <div className="text-xs text-[var(--color-text-muted)]">{t.filesCompared}</div>
+          </div>
         </div>
-        <div className="flex items-center gap-4 ml-auto text-sm">
-          <span className="flex items-center gap-1.5 text-green-400">
-            <Check size={14} />
-            {noDiffCount} {t.noDiff}
-          </span>
-          <span className="flex items-center gap-1.5 text-yellow-400">
-            <AlertCircle size={14} />
-            {hasDiffCount} {t.hasDiff}
-          </span>
-          {failedCount > 0 && (
-            <span className="flex items-center gap-1.5 text-red-400">
-              <X size={14} />
-              {failedCount} {t.failed}
-            </span>
-          )}
+        <div className="flex min-h-[86px] items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-green-500/15 text-green-400">
+            <Check size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xl font-semibold text-[var(--color-text-primary)]">
+              {noDiffCount}
+            </div>
+            <div className="text-xs text-[var(--color-text-muted)]">{t.noDiff}</div>
+          </div>
         </div>
+        <div className="flex min-h-[86px] items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-amber-500/15 text-amber-400">
+            <AlertCircle size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xl font-semibold text-[var(--color-text-primary)]">
+              {hasDiffCount}
+            </div>
+            <div className="text-xs text-[var(--color-text-muted)]">{t.hasDiff}</div>
+          </div>
+        </div>
+        {failedCount > 0 && (
+          <div className="flex min-h-[86px] items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-red-500/15 text-red-400">
+              <X size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl font-semibold text-[var(--color-text-primary)]">
+                {failedCount}
+              </div>
+              <div className="text-xs text-[var(--color-text-muted)]">{t.failed}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
       <div className="flex flex-col gap-3 p-4 bg-[var(--color-bg-secondary)] rounded-lg border border-[var(--color-border)]">
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="search"
-            value={batchSearchQuery}
-            onChange={(event) => setBatchSearchQuery(event.target.value)}
-            placeholder={t.batchSearchPlaceholder}
-            className="h-9 w-full max-w-xs rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
-          />
-          <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-            <span className="text-[10px] font-semibold uppercase tracking-wide">
-              {t.batchSortLabel}
-            </span>
-            <select
-              value={batchSortKey}
-              onChange={(event) => setBatchSortKey(event.target.value as BatchSortKey)}
-              className="h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
-            >
-              {batchSortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="search"
+                value={batchSearchQuery}
+                onChange={(event) => setBatchSearchQuery(event.target.value)}
+                placeholder={t.batchSearchPlaceholder}
+                className="h-9 w-full max-w-xs rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+              />
+            </div>
+            <div className="flex flex-col gap-2 text-xs text-[var(--color-text-secondary)]">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                  {t.batchFilterStatusLabel}
+                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {batchStatusOptions.map((option) => {
+                    const isActive = batchStatusFilter === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setBatchStatusFilter(option.value)}
+                        className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                          isActive
+                            ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+                            : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        <span className="ml-1 text-[9px] text-[var(--color-text-muted)]">
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[var(--color-border)]/60">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                  {t.batchFilterDiffLabel}
+                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {(['added', 'removed', 'modified'] as DiffType[]).map((type) => {
+                    const isActive = batchDiffTypeFilter.has(type);
+                    const label =
+                      type === 'added' ? t.added : type === 'removed' ? t.removed : t.modified;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleBatchDiffTypeToggle(type)}
+                        className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                          isActive
+                            ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+                            : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-muted)] lg:flex-col lg:items-end lg:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide">
+                {t.batchSortLabel}
+              </span>
+              <select
+                value={batchSortKey}
+                onChange={(event) => setBatchSortKey(event.target.value as BatchSortKey)}
+                className="h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+              >
+                {batchSortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setBatchSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="h-8 rounded-md border border-[var(--color-border)] px-2 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+              >
+                {batchSortOrder === 'asc' ? t.batchSortAsc : t.batchSortDesc}
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setBatchSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
-              className="h-8 rounded-md border border-[var(--color-border)] px-2 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+              onClick={handleBatchResetFilters}
+              className="rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
             >
-              {batchSortOrder === 'asc' ? t.batchSortAsc : t.batchSortDesc}
+              {t.resetFilters}
             </button>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-secondary)]">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-            {t.batchFilterStatusLabel}
-          </span>
-          <div className="flex flex-wrap items-center gap-1">
-            {batchStatusOptions.map((option) => {
-              const isActive = batchStatusFilter === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setBatchStatusFilter(option.value)}
-                  className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                    isActive
-                      ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
-                      : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
-                  }`}
-                >
-                  <span>{option.label}</span>
-                  <span className="ml-1 text-[9px] text-[var(--color-text-muted)]">
-                    {option.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-            {t.batchFilterDiffLabel}
-          </span>
-          <div className="flex flex-wrap items-center gap-1">
-            {(['added', 'removed', 'modified'] as DiffType[]).map((type) => {
-              const isActive = batchDiffTypeFilter.has(type);
-              const label =
-                type === 'added' ? t.added : type === 'removed' ? t.removed : t.modified;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => handleBatchDiffTypeToggle(type)}
-                  className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                    isActive
-                      ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
-                      : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            onClick={handleBatchResetFilters}
-            className="ml-auto rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-          >
-            {t.resetFilters}
-          </button>
         </div>
       </div>
 
@@ -1111,15 +1145,33 @@ export function BatchResultList({
               const showAdded = batchDiffTypeFilter.has('added');
               const showRemoved = batchDiffTypeFilter.has('removed');
               const showModified = batchDiffTypeFilter.has('modified');
+              const showAccent = row.status !== 'all';
+              const rowAccentClass =
+                row.status === 'onlyA'
+                  ? 'bg-red-500/70'
+                  : row.status === 'onlyB'
+                    ? 'bg-emerald-500/70'
+                    : row.status === 'failed'
+                      ? 'bg-red-400/70'
+                      : row.status === 'hasDiff'
+                        ? 'bg-amber-400/70'
+                        : row.status === 'noDiff'
+                          ? 'bg-green-400/50'
+                          : 'bg-transparent';
               return (
                 <tr 
                   key={pair.id}
                   className="hover:bg-[var(--color-bg-tertiary)]/50 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="relative flex items-center gap-2 pl-2">
+                      {showAccent && (
+                        <span
+                          className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${rowAccentClass}`}
+                        />
+                      )}
                       <FileText size={16} className="text-[var(--color-text-secondary)]" />
-                      <span className="text-[var(--color-text-primary)]">{pair.name}</span>
+                      <span className="text-[var(--color-text-primary)] font-semibold">{pair.name}</span>
                       {pair.status === 'only-in-a' && (
                         <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">
                           {t.onlyInA}
@@ -1192,7 +1244,7 @@ export function BatchResultList({
                     {isSuccess && pair.status === 'matched' && (
                       <button
                         onClick={() => handleViewDetail(pair)}
-                        className="flex items-center gap-1 text-sm text-[var(--color-accent)] hover:underline ml-auto"
+                        className="ml-auto inline-flex h-8 w-24 items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
                       >
                         {t.viewDetails}
                         <ChevronRight size={14} />
