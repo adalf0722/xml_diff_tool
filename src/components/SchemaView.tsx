@@ -4,7 +4,7 @@
  */
 
 import { useMemo, useEffect, useRef, useState, type ReactElement } from 'react';
-import { Table, Hash, ChevronDown, ChevronRight } from 'lucide-react';
+import { Table, Hash, ChevronDown, ChevronRight, PanelRight, X } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { DiffType } from '../core/xml-diff';
 import type { SchemaDiffItem, SchemaDiffResult } from '../core/schema-diff';
@@ -59,6 +59,7 @@ export function SchemaView({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
   const [schemaScopeState, setSchemaScopeState] = useState<'all' | 'table' | 'field'>('all');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const schemaScope = schemaScopeProp ?? schemaScopeState;
   const updateSchemaScope = (scope: 'all' | 'table' | 'field') => {
     if (!schemaScopeProp) {
@@ -218,9 +219,173 @@ export function SchemaView({
     };
   }, [activeDiffIndex, navIndexToRowIndex, navItems, onJumpComplete]);
 
+  const sidebarContent = (
+    <>
+      <div className="border-b border-[var(--color-border)] px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t.schemaSummaryTitle}
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(false)}
+            className="rounded-md border border-[var(--color-border)] p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60 lg:hidden"
+            aria-label={t.close}
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 p-1 text-[10px]">
+            <button
+              type="button"
+              onClick={() => updateSchemaScope('all')}
+              className={`rounded px-2 py-1 font-semibold transition-colors ${
+                schemaScope === 'all'
+                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {t.schemaFilterAll}
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSchemaScope('table')}
+              className={`rounded px-2 py-1 font-semibold transition-colors ${
+                schemaScope === 'table'
+                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {t.schemaFilterTables}
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSchemaScope('field')}
+              className={`rounded px-2 py-1 font-semibold transition-colors ${
+                schemaScope === 'field'
+                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {t.schemaFilterFields}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={resetSchemaFilters}
+            className="rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60"
+          >
+            {t.resetFilters}
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto px-4 py-3 space-y-4 text-sm text-[var(--color-text-secondary)]">
+        {schemaScope !== 'field' && (
+          <section>
+            <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              {t.schemaTableChanges}
+            </div>
+            <div className="mt-2 grid gap-2">
+              <StatRow
+                label={t.schemaTableAddedLabel}
+                count={schemaStats.table.added}
+                tone="added"
+                active={isStatActive('table', 'added')}
+                onClick={
+                  schemaStats.table.added > 0
+                    ? () => applySchemaFilter('table', 'added')
+                    : undefined
+                }
+              />
+              <StatRow
+                label={t.schemaTableRemovedLabel}
+                count={schemaStats.table.removed}
+                tone="removed"
+                active={isStatActive('table', 'removed')}
+                onClick={
+                  schemaStats.table.removed > 0
+                    ? () => applySchemaFilter('table', 'removed')
+                    : undefined
+                }
+              />
+              <StatRow
+                label={t.schemaTableModifiedLabel}
+                count={schemaStats.table.modified}
+                tone="modified"
+                active={isStatActive('table', 'modified')}
+                onClick={
+                  schemaStats.table.modified > 0
+                    ? () => applySchemaFilter('table', 'modified')
+                    : undefined
+                }
+              />
+            </div>
+          </section>
+        )}
+        {schemaScope !== 'table' && (
+          <section>
+            <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              {t.schemaFieldChanges}
+            </div>
+            <div className="mt-2 grid gap-2">
+              <StatRow
+                label={t.schemaFieldAddedLabel}
+                count={schemaStats.field.added}
+                tone="added"
+                active={isStatActive('field', 'added')}
+                onClick={
+                  schemaStats.field.added > 0
+                    ? () => applySchemaFilter('field', 'added')
+                    : undefined
+                }
+              />
+              <StatRow
+                label={t.schemaFieldRemovedLabel}
+                count={schemaStats.field.removed}
+                tone="removed"
+                active={isStatActive('field', 'removed')}
+                onClick={
+                  schemaStats.field.removed > 0
+                    ? () => applySchemaFilter('field', 'removed')
+                    : undefined
+                }
+              />
+              <StatRow
+                label={t.schemaFieldModifiedLabel}
+                count={schemaStats.field.modified}
+                tone="modified"
+                active={isStatActive('field', 'modified')}
+                onClick={
+                  schemaStats.field.modified > 0
+                    ? () => applySchemaFilter('field', 'modified')
+                    : undefined
+                }
+              />
+            </div>
+          </section>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="h-full flex">
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--color-border)] lg:hidden">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t.schemaSummaryTitle}
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            className="flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60"
+            aria-label={t.schemaSummaryTitle}
+          >
+            <PanelRight size={14} />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0">
         {rows.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
             <p>{t.schemaNoChanges}</p>
@@ -397,147 +562,28 @@ export function SchemaView({
               </div>
             </div>
           );
-        }}
+            }}
           />
         )}
+        </div>
       </div>
       <aside className="hidden lg:flex lg:w-72 xl:w-80 flex-col border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-        <div className="border-b border-[var(--color-border)] px-4 py-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-            {t.schemaSummaryTitle}
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 p-1 text-[10px]">
-              <button
-                type="button"
-                onClick={() => updateSchemaScope('all')}
-                className={`rounded px-2 py-1 font-semibold transition-colors ${
-                  schemaScope === 'all'
-                    ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
-                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {t.schemaFilterAll}
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSchemaScope('table')}
-                className={`rounded px-2 py-1 font-semibold transition-colors ${
-                  schemaScope === 'table'
-                    ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
-                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {t.schemaFilterTables}
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSchemaScope('field')}
-                className={`rounded px-2 py-1 font-semibold transition-colors ${
-                  schemaScope === 'field'
-                    ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
-                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {t.schemaFilterFields}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={resetSchemaFilters}
-              className="rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60"
-            >
-              {t.resetFilters}
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto px-4 py-3 space-y-4 text-sm text-[var(--color-text-secondary)]">
-          {schemaScope !== 'field' && (
-            <section>
-              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                {t.schemaTableChanges}
-              </div>
-              <div className="mt-2 grid gap-2">
-                <StatRow
-                  label={t.schemaTableAddedLabel}
-                  count={schemaStats.table.added}
-                  tone="added"
-                  active={isStatActive('table', 'added')}
-                  onClick={
-                    schemaStats.table.added > 0
-                      ? () => applySchemaFilter('table', 'added')
-                      : undefined
-                  }
-                />
-                <StatRow
-                  label={t.schemaTableRemovedLabel}
-                  count={schemaStats.table.removed}
-                  tone="removed"
-                  active={isStatActive('table', 'removed')}
-                  onClick={
-                    schemaStats.table.removed > 0
-                      ? () => applySchemaFilter('table', 'removed')
-                      : undefined
-                  }
-                />
-                <StatRow
-                  label={t.schemaTableModifiedLabel}
-                  count={schemaStats.table.modified}
-                  tone="modified"
-                  active={isStatActive('table', 'modified')}
-                  onClick={
-                    schemaStats.table.modified > 0
-                      ? () => applySchemaFilter('table', 'modified')
-                      : undefined
-                  }
-                />
-              </div>
-            </section>
-          )}
-          {schemaScope !== 'table' && (
-            <section>
-              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                {t.schemaFieldChanges}
-              </div>
-              <div className="mt-2 grid gap-2">
-                <StatRow
-                  label={t.schemaFieldAddedLabel}
-                  count={schemaStats.field.added}
-                  tone="added"
-                  active={isStatActive('field', 'added')}
-                  onClick={
-                    schemaStats.field.added > 0
-                      ? () => applySchemaFilter('field', 'added')
-                      : undefined
-                  }
-                />
-                <StatRow
-                  label={t.schemaFieldRemovedLabel}
-                  count={schemaStats.field.removed}
-                  tone="removed"
-                  active={isStatActive('field', 'removed')}
-                  onClick={
-                    schemaStats.field.removed > 0
-                      ? () => applySchemaFilter('field', 'removed')
-                      : undefined
-                  }
-                />
-                <StatRow
-                  label={t.schemaFieldModifiedLabel}
-                  count={schemaStats.field.modified}
-                  tone="modified"
-                  active={isStatActive('field', 'modified')}
-                  onClick={
-                    schemaStats.field.modified > 0
-                      ? () => applySchemaFilter('field', 'modified')
-                      : undefined
-                  }
-                />
-              </div>
-            </section>
-          )}
-        </div>
+        {sidebarContent}
       </aside>
+      <div
+        className={`fixed inset-0 z-40 lg:hidden ${isSidebarOpen ? '' : 'pointer-events-none'}`}
+        aria-hidden={!isSidebarOpen}
+      >
+        <div
+          className={`absolute inset-0 bg-black/40 transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setIsSidebarOpen(false)}
+        />
+        <div
+          className={`absolute right-0 top-0 h-full w-72 max-w-[85vw] border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)] shadow-lg transition-transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        >
+          {sidebarContent}
+        </div>
+      </div>
     </div>
   );
 }
