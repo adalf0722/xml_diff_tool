@@ -1,7 +1,7 @@
 import type { XMLNode } from './xml-parser';
 import type { DiffType } from './xml-diff';
 
-export type SchemaPresetId = 'struct' | 'xsd' | 'table';
+export type SchemaPresetId = 'struct' | 'xsd' | 'table' | 'custom';
 
 export interface SchemaExtractConfig {
   tableTags: string[];
@@ -51,6 +51,7 @@ export const SCHEMA_PRESETS: Record<SchemaPresetId, SchemaExtractConfig> = {
     caseSensitiveNames: true,
     fieldSearchMode: 'children',
   },
+  custom: DEFAULT_SCHEMA_CONFIG,
 };
 
 export function getSchemaPresetConfig(presetId: SchemaPresetId): SchemaExtractConfig {

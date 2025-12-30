@@ -4,10 +4,10 @@
  */
 
 import { useMemo, useEffect, useRef, useState, type ReactElement } from 'react';
-import { Table, Hash, ChevronDown, ChevronRight, PanelRight, X } from 'lucide-react';
+import { Table, Hash, ChevronDown, ChevronRight, PanelRight, X, SlidersHorizontal } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { DiffType } from '../core/xml-diff';
-import type { SchemaDiffItem, SchemaDiffResult, SchemaPresetId } from '../core/schema-diff';
+import type { SchemaDiffItem, SchemaDiffResult, SchemaPresetId, SchemaExtractConfig } from '../core/schema-diff';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface SchemaViewProps {
@@ -17,6 +17,8 @@ interface SchemaViewProps {
   onScopeChange?: (scope: 'all' | 'table' | 'field') => void;
   schemaPresetId?: SchemaPresetId;
   onPresetChange?: (presetId: SchemaPresetId) => void;
+  schemaCustomConfig?: SchemaExtractConfig;
+  onCustomConfigChange?: (config: SchemaExtractConfig) => void;
   activeDiffIndex?: number;
   onNavigate?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
@@ -52,6 +54,8 @@ export function SchemaView({
   onScopeChange,
   schemaPresetId,
   onPresetChange,
+  schemaCustomConfig,
+  onCustomConfigChange,
   activeDiffIndex,
   onNavigate,
   onNavCountChange,
@@ -64,21 +68,298 @@ export function SchemaView({
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
   const [schemaScopeState, setSchemaScopeState] = useState<'all' | 'table' | 'field'>('all');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCustomDrawerOpen, setIsCustomDrawerOpen] = useState(false);
   const schemaScope = schemaScopeProp ?? schemaScopeState;
   const showPresetSelector = schemaPresetId !== undefined && Boolean(onPresetChange);
+  const showCustomEditor =
+    schemaPresetId === 'custom' &&
+    schemaCustomConfig !== undefined &&
+    typeof onCustomConfigChange === 'function';
   const presetOptions = useMemo(
     () => [
       { id: 'struct' as const, label: t.schemaPresetStruct },
       { id: 'xsd' as const, label: t.schemaPresetXsd },
       { id: 'table' as const, label: t.schemaPresetTable },
+      { id: 'custom' as const, label: t.schemaPresetCustom },
     ],
-    [t.schemaPresetStruct, t.schemaPresetTable, t.schemaPresetXsd]
+    [t.schemaPresetCustom, t.schemaPresetStruct, t.schemaPresetTable, t.schemaPresetXsd]
   );
+  const currentPresetLabel = useMemo(() => {
+    if (!schemaPresetId) return t.schemaPresetLabel;
+    return presetOptions.find(option => option.id === schemaPresetId)?.label ?? t.schemaPresetLabel;
+  }, [presetOptions, schemaPresetId, t.schemaPresetLabel]);
+  const [customDraft, setCustomDraft] = useState(() =>
+    schemaCustomConfig
+      ? {
+          tableTags: schemaCustomConfig.tableTags.join(', '),
+          fieldTags: schemaCustomConfig.fieldTags.join(', '),
+          tableNameAttrs: schemaCustomConfig.tableNameAttrs.join(', '),
+          fieldNameAttrs: schemaCustomConfig.fieldNameAttrs.join(', '),
+          ignoreNodes: schemaCustomConfig.ignoreNodes.join(', '),
+          ignoreNamespaces: schemaCustomConfig.ignoreNamespaces ?? false,
+          caseSensitiveNames: schemaCustomConfig.caseSensitiveNames ?? true,
+          fieldSearchMode: schemaCustomConfig.fieldSearchMode ?? 'children',
+        }
+      : {
+          tableTags: '',
+          fieldTags: '',
+          tableNameAttrs: '',
+          fieldNameAttrs: '',
+          ignoreNodes: '',
+          ignoreNamespaces: false,
+          caseSensitiveNames: true,
+          fieldSearchMode: 'children' as const,
+        }
+  );
+  useEffect(() => {
+    if (!schemaCustomConfig) return;
+    setCustomDraft({
+      tableTags: schemaCustomConfig.tableTags.join(', '),
+      fieldTags: schemaCustomConfig.fieldTags.join(', '),
+      tableNameAttrs: schemaCustomConfig.tableNameAttrs.join(', '),
+      fieldNameAttrs: schemaCustomConfig.fieldNameAttrs.join(', '),
+      ignoreNodes: schemaCustomConfig.ignoreNodes.join(', '),
+      ignoreNamespaces: schemaCustomConfig.ignoreNamespaces ?? false,
+      caseSensitiveNames: schemaCustomConfig.caseSensitiveNames ?? true,
+      fieldSearchMode: schemaCustomConfig.fieldSearchMode ?? 'children',
+    });
+  }, [schemaCustomConfig]);
+  useEffect(() => {
+    if (schemaPresetId !== 'custom' && isCustomDrawerOpen) {
+      setIsCustomDrawerOpen(false);
+    }
+  }, [schemaPresetId, isCustomDrawerOpen]);
   const updateSchemaScope = (scope: 'all' | 'table' | 'field') => {
     if (!schemaScopeProp) {
       setSchemaScopeState(scope);
     }
     onScopeChange?.(scope);
+  };
+  const parseList = (value: string) =>
+    value
+      .split(',')
+      .map(item => item.trim())
+      .filter(item => item.length > 0);
+  const applyCustomConfig = () => {
+    if (!schemaCustomConfig || !onCustomConfigChange) return;
+    const tableTags = parseList(customDraft.tableTags);
+    const fieldTags = parseList(customDraft.fieldTags);
+    const tableNameAttrs = parseList(customDraft.tableNameAttrs);
+    const fieldNameAttrs = parseList(customDraft.fieldNameAttrs);
+    const ignoreNodes = parseList(customDraft.ignoreNodes);
+    const nextConfig: SchemaExtractConfig = {
+      tableTags: tableTags.length > 0 ? tableTags : schemaCustomConfig.tableTags,
+      fieldTags: fieldTags.length > 0 ? fieldTags : schemaCustomConfig.fieldTags,
+      tableNameAttrs:
+        tableNameAttrs.length > 0 ? tableNameAttrs : schemaCustomConfig.tableNameAttrs,
+      fieldNameAttrs:
+        fieldNameAttrs.length > 0 ? fieldNameAttrs : schemaCustomConfig.fieldNameAttrs,
+      ignoreNodes,
+      ignoreNamespaces: customDraft.ignoreNamespaces,
+      caseSensitiveNames: customDraft.caseSensitiveNames,
+      fieldSearchMode: customDraft.fieldSearchMode,
+    };
+    onCustomConfigChange(nextConfig);
+  };
+  const resetCustomDraft = () => {
+    if (!schemaCustomConfig) return;
+    setCustomDraft({
+      tableTags: schemaCustomConfig.tableTags.join(', '),
+      fieldTags: schemaCustomConfig.fieldTags.join(', '),
+      tableNameAttrs: schemaCustomConfig.tableNameAttrs.join(', '),
+      fieldNameAttrs: schemaCustomConfig.fieldNameAttrs.join(', '),
+      ignoreNodes: schemaCustomConfig.ignoreNodes.join(', '),
+      ignoreNamespaces: schemaCustomConfig.ignoreNamespaces ?? false,
+      caseSensitiveNames: schemaCustomConfig.caseSensitiveNames ?? true,
+      fieldSearchMode: schemaCustomConfig.fieldSearchMode ?? 'children',
+    });
+  };
+  const isCustomDirty = useMemo(() => {
+    if (!schemaCustomConfig) return false;
+    return (
+      customDraft.tableTags !== schemaCustomConfig.tableTags.join(', ') ||
+      customDraft.fieldTags !== schemaCustomConfig.fieldTags.join(', ') ||
+      customDraft.tableNameAttrs !== schemaCustomConfig.tableNameAttrs.join(', ') ||
+      customDraft.fieldNameAttrs !== schemaCustomConfig.fieldNameAttrs.join(', ') ||
+      customDraft.ignoreNodes !== schemaCustomConfig.ignoreNodes.join(', ') ||
+      customDraft.ignoreNamespaces !== (schemaCustomConfig.ignoreNamespaces ?? false) ||
+      customDraft.caseSensitiveNames !== (schemaCustomConfig.caseSensitiveNames ?? true) ||
+      customDraft.fieldSearchMode !== (schemaCustomConfig.fieldSearchMode ?? 'children')
+    );
+  }, [customDraft, schemaCustomConfig]);
+  const customEditorContent = showCustomEditor ? (
+    <div className="space-y-3 text-xs text-[var(--color-text-secondary)]">
+      <div className="space-y-2">
+        <label className="block text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomTableTags}
+        </label>
+        <input
+          type="text"
+          value={customDraft.tableTags}
+          onChange={event => setCustomDraft(prev => ({ ...prev, tableTags: event.target.value }))}
+          placeholder={t.schemaCustomListHint}
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2 py-1 text-[11px] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="block text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomFieldTags}
+        </label>
+        <input
+          type="text"
+          value={customDraft.fieldTags}
+          onChange={event => setCustomDraft(prev => ({ ...prev, fieldTags: event.target.value }))}
+          placeholder={t.schemaCustomListHint}
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2 py-1 text-[11px] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="block text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomTableNameAttrs}
+        </label>
+        <input
+          type="text"
+          value={customDraft.tableNameAttrs}
+          onChange={event =>
+            setCustomDraft(prev => ({ ...prev, tableNameAttrs: event.target.value }))
+          }
+          placeholder={t.schemaCustomListHint}
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2 py-1 text-[11px] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="block text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomFieldNameAttrs}
+        </label>
+        <input
+          type="text"
+          value={customDraft.fieldNameAttrs}
+          onChange={event =>
+            setCustomDraft(prev => ({ ...prev, fieldNameAttrs: event.target.value }))
+          }
+          placeholder={t.schemaCustomListHint}
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2 py-1 text-[11px] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="block text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomIgnoreNodes}
+        </label>
+        <input
+          type="text"
+          value={customDraft.ignoreNodes}
+          onChange={event => setCustomDraft(prev => ({ ...prev, ignoreNodes: event.target.value }))}
+          placeholder={t.schemaCustomListHint}
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2 py-1 text-[11px] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+        />
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomIgnoreNamespaces}
+        </label>
+        <button
+          type="button"
+          onClick={() =>
+            setCustomDraft(prev => ({
+              ...prev,
+              ignoreNamespaces: !prev.ignoreNamespaces,
+            }))
+          }
+          className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${
+            customDraft.ignoreNamespaces
+              ? 'border-[var(--color-accent)]/60 bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+              : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+          }`}
+        >
+          {customDraft.ignoreNamespaces ? t.enabled : t.disabled}
+        </button>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomCaseSensitive}
+        </label>
+        <button
+          type="button"
+          onClick={() =>
+            setCustomDraft(prev => ({
+              ...prev,
+              caseSensitiveNames: !prev.caseSensitiveNames,
+            }))
+          }
+          className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${
+            customDraft.caseSensitiveNames
+              ? 'border-[var(--color-accent)]/60 bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+              : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+          }`}
+        >
+          {customDraft.caseSensitiveNames ? t.enabled : t.disabled}
+        </button>
+      </div>
+      <div className="space-y-2">
+        <label className="block text-[11px] text-[var(--color-text-muted)]">
+          {t.schemaCustomFieldSearchMode}
+        </label>
+        <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 p-1 text-[10px]">
+          <button
+            type="button"
+            onClick={() => setCustomDraft(prev => ({ ...prev, fieldSearchMode: 'children' }))}
+            className={`rounded px-2 py-1 font-semibold transition-colors ${
+              customDraft.fieldSearchMode === 'children'
+                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+            }`}
+          >
+            {t.schemaCustomFieldSearchChildren}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setCustomDraft(prev => ({ ...prev, fieldSearchMode: 'descendants' }))
+            }
+            className={`rounded px-2 py-1 font-semibold transition-colors ${
+              customDraft.fieldSearchMode === 'descendants'
+                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+            }`}
+          >
+            {t.schemaCustomFieldSearchDescendants}
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          type="button"
+          onClick={applyCustomConfig}
+          disabled={!isCustomDirty}
+          className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+            isCustomDirty
+              ? 'border-[var(--color-accent)]/60 bg-[var(--color-accent)]/20 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/30'
+              : 'border-[var(--color-border)] text-[var(--color-text-muted)] opacity-60 cursor-not-allowed'
+          }`}
+        >
+          {t.schemaCustomApply}
+        </button>
+        <button
+          type="button"
+          onClick={resetCustomDraft}
+          disabled={!isCustomDirty}
+          className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+            isCustomDirty
+              ? 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60'
+              : 'border-[var(--color-border)] text-[var(--color-text-muted)] opacity-60 cursor-not-allowed'
+          }`}
+        >
+          {t.schemaCustomReset}
+        </button>
+      </div>
+    </div>
+  ) : null;
+  const openCustomDrawer = () => {
+    setIsCustomDrawerOpen(true);
+    setIsSidebarOpen(false);
+  };
+  const closeCustomDrawer = () => {
+    setIsCustomDrawerOpen(false);
   };
 
   const filteredItems = useMemo(() => {
@@ -252,10 +533,26 @@ export function SchemaView({
           </button>
         </div>
         {showPresetSelector && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-              {t.schemaPresetLabel}
-            </span>
+          <div className="mt-2 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {t.schemaPresetLabel}
+              </span>
+              {showCustomEditor && (
+                <button
+                  type="button"
+                  onClick={openCustomDrawer}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    isCustomDrawerOpen
+                      ? 'border-[var(--color-accent)]/60 bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                      : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60'
+                  }`}
+                >
+                  <SlidersHorizontal size={12} />
+                  {t.schemaCustomOpen}
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 p-1 text-[10px]">
               {presetOptions.map(option => (
                 <button
@@ -427,7 +724,11 @@ export function SchemaView({
         <div className="flex-1 min-h-0">
         {rows.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
-            <p>{t.schemaNoChanges}</p>
+            <p>
+              {schemaDiff.stats.total > 0
+                ? t.schemaNoChanges
+                : t.schemaNoTableMatch.replace('{preset}', currentPresetLabel)}
+            </p>
           </div>
         ) : (
           <Virtuoso
@@ -623,6 +924,66 @@ export function SchemaView({
           {sidebarContent}
         </div>
       </div>
+      {showCustomEditor && (
+        <div
+          className={`fixed inset-0 z-50 ${isCustomDrawerOpen ? '' : 'pointer-events-none'}`}
+          aria-hidden={!isCustomDrawerOpen}
+        >
+          <div
+            className={`absolute inset-0 bg-black/40 transition-opacity ${
+              isCustomDrawerOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+            onClick={closeCustomDrawer}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className={`absolute right-0 top-0 hidden h-full w-96 max-w-[90vw] flex-col border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)] shadow-xl transition-transform lg:flex ${
+              isCustomDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {t.schemaCustomTitle}
+              </span>
+              <button
+                type="button"
+                onClick={closeCustomDrawer}
+                className="rounded-md border border-[var(--color-border)] p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60"
+                aria-label={t.close}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto px-4 py-3">{customEditorContent}</div>
+          </div>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className={`absolute inset-x-0 bottom-0 flex max-h-[80vh] flex-col rounded-t-xl border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] shadow-xl transition-transform lg:hidden ${
+              isCustomDrawerOpen ? 'translate-y-0' : 'translate-y-full'
+            }`}
+          >
+            <div className="flex items-center justify-center pt-2">
+              <div className="h-1 w-10 rounded-full bg-[var(--color-border)]" />
+            </div>
+            <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {t.schemaCustomTitle}
+              </span>
+              <button
+                type="button"
+                onClick={closeCustomDrawer}
+                className="rounded-md border border-[var(--color-border)] p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60"
+                aria-label={t.close}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto px-4 py-3">{customEditorContent}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

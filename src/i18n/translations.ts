@@ -69,6 +69,7 @@ export interface Translations {
   schemaField: string;
   schemaFieldCount: string;
   schemaNoChanges: string;
+  schemaNoTableMatch: string;
   schemaAttributeType: string;
   schemaAttributeSize: string;
   schemaAttributeDefault: string;
@@ -77,6 +78,22 @@ export interface Translations {
   schemaPresetStruct: string;
   schemaPresetXsd: string;
   schemaPresetTable: string;
+  schemaPresetCustom: string;
+  schemaCustomTitle: string;
+  schemaCustomTableTags: string;
+  schemaCustomFieldTags: string;
+  schemaCustomTableNameAttrs: string;
+  schemaCustomFieldNameAttrs: string;
+  schemaCustomIgnoreNodes: string;
+  schemaCustomIgnoreNamespaces: string;
+  schemaCustomCaseSensitive: string;
+  schemaCustomFieldSearchMode: string;
+  schemaCustomFieldSearchChildren: string;
+  schemaCustomFieldSearchDescendants: string;
+  schemaCustomListHint: string;
+  schemaCustomApply: string;
+  schemaCustomReset: string;
+  schemaCustomOpen: string;
   schemaSummaryTitle: string;
   schemaFilterAll: string;
   schemaFilterTables: string;
@@ -89,6 +106,9 @@ export interface Translations {
   schemaFieldAddedLabel: string;
   schemaFieldRemovedLabel: string;
   schemaFieldModifiedLabel: string;
+
+  enabled: string;
+  disabled: string;
 
   // Errors
   xmlParseError: string;
@@ -117,6 +137,11 @@ export interface Translations {
   helpViewInline: string;
   helpViewTree: string;
   helpViewSchema: string;
+  helpSchemaCustomTitle: string;
+  helpSchemaCustomStep1: string;
+  helpSchemaCustomStep2: string;
+  helpSchemaCustomStep3: string;
+  helpSchemaCustomNote: string;
   helpReportsTitle: string;
   helpReportsDesc: string;
   helpTipsTitle: string;
@@ -312,6 +337,7 @@ export const translations: Record<Language, Translations> = {
     schemaField: 'Field',
     schemaFieldCount: '{count} fields',
     schemaNoChanges: 'No schema differences',
+    schemaNoTableMatch: 'No tables matched the current preset ({preset}). Adjust the settings.',
     schemaAttributeType: 'type',
     schemaAttributeSize: 'size',
     schemaAttributeDefault: 'default',
@@ -320,6 +346,22 @@ export const translations: Record<Language, Translations> = {
     schemaPresetStruct: 'Struct/Entry',
     schemaPresetXsd: 'XSD (complexType/element)',
     schemaPresetTable: 'Table/Column',
+    schemaPresetCustom: 'Custom',
+    schemaCustomTitle: 'Custom template',
+    schemaCustomTableTags: 'Table tags',
+    schemaCustomFieldTags: 'Field tags',
+    schemaCustomTableNameAttrs: 'Table name attributes',
+    schemaCustomFieldNameAttrs: 'Field name attributes',
+    schemaCustomIgnoreNodes: 'Ignore nodes',
+    schemaCustomIgnoreNamespaces: 'Ignore namespaces',
+    schemaCustomCaseSensitive: 'Case-sensitive names',
+    schemaCustomFieldSearchMode: 'Field search mode',
+    schemaCustomFieldSearchChildren: 'Children only',
+    schemaCustomFieldSearchDescendants: 'Include descendants',
+    schemaCustomListHint: 'Multiple values, comma-separated',
+    schemaCustomApply: 'Apply',
+    schemaCustomReset: 'Reset',
+    schemaCustomOpen: 'Custom settings',
     schemaSummaryTitle: 'Schema summary',
     schemaFilterAll: 'All',
     schemaFilterTables: 'Tables',
@@ -332,6 +374,9 @@ export const translations: Record<Language, Translations> = {
     schemaFieldAddedLabel: 'Fields added',
     schemaFieldRemovedLabel: 'Fields removed',
     schemaFieldModifiedLabel: 'Fields modified',
+
+    enabled: 'Enabled',
+    disabled: 'Disabled',
 
     // Errors
     xmlParseError: 'XML Parse Error',
@@ -360,6 +405,11 @@ export const translations: Record<Language, Translations> = {
     helpViewInline: 'Unified diff with additions and removals.',
     helpViewTree: 'Tree diff for structural changes.',
     helpViewSchema: 'Schema view for tables and fields.',
+    helpSchemaCustomTitle: 'Custom schema template',
+    helpSchemaCustomStep1: 'Switch to Schema view and select the Custom preset.',
+    helpSchemaCustomStep2: 'Open Custom settings to set table/field tags and name attributes.',
+    helpSchemaCustomStep3: 'Apply to re-calculate schema differences.',
+    helpSchemaCustomNote: 'Multiple tags/attributes are supported; separate them with commas.',
     helpReportsTitle: 'Reports',
     helpReportsDesc: 'Download summaries that match the current view.',
     helpTipsTitle: 'Tips',
@@ -554,6 +604,7 @@ export const translations: Record<Language, Translations> = {
     schemaField: '欄位',
     schemaFieldCount: '{count} 欄位',
     schemaNoChanges: '沒有結構差異',
+    schemaNoTableMatch: '目前模板（{preset}）沒有匹配到表，請調整',
     schemaAttributeType: '型別',
     schemaAttributeSize: '大小',
     schemaAttributeDefault: '預設值',
@@ -562,6 +613,22 @@ export const translations: Record<Language, Translations> = {
     schemaPresetStruct: '結構/欄位（struct/entry）',
     schemaPresetXsd: 'XSD（complexType/element）',
     schemaPresetTable: '表/欄位（table/column）',
+    schemaPresetCustom: '自訂',
+    schemaCustomTitle: '自訂模板',
+    schemaCustomTableTags: '表節點標籤',
+    schemaCustomFieldTags: '欄位節點標籤',
+    schemaCustomTableNameAttrs: '表名稱屬性',
+    schemaCustomFieldNameAttrs: '欄位名稱屬性',
+    schemaCustomIgnoreNodes: '忽略節點',
+    schemaCustomIgnoreNamespaces: '忽略命名空間',
+    schemaCustomCaseSensitive: '名稱大小寫區分',
+    schemaCustomFieldSearchMode: '欄位搜尋範圍',
+    schemaCustomFieldSearchChildren: '僅子層',
+    schemaCustomFieldSearchDescendants: '包含深層',
+    schemaCustomListHint: '可填多個，以逗號分隔',
+    schemaCustomApply: '套用',
+    schemaCustomReset: '還原',
+    schemaCustomOpen: '自訂設定',
     schemaSummaryTitle: 'Schema 摘要',
     schemaFilterAll: '全部',
     schemaFilterTables: '表',
@@ -574,6 +641,9 @@ export const translations: Record<Language, Translations> = {
     schemaFieldAddedLabel: '新增欄位',
     schemaFieldRemovedLabel: '刪除欄位',
     schemaFieldModifiedLabel: '修改欄位',
+
+    enabled: '啟用',
+    disabled: '關閉',
 
     // Errors
     xmlParseError: 'XML 解析錯誤',
@@ -602,6 +672,11 @@ export const translations: Record<Language, Translations> = {
     helpViewInline: '合併視圖顯示新增與刪除。',
     helpViewTree: '樹狀結構變更更清楚。',
     helpViewSchema: '以表與欄位為主的結構差異檢視。',
+    helpSchemaCustomTitle: 'Schema 自訂模板',
+    helpSchemaCustomStep1: '切換到 Schema 檢視並選擇「自訂」模板。',
+    helpSchemaCustomStep2: '點「自訂設定」調整表/欄位標籤與名稱屬性。',
+    helpSchemaCustomStep3: '按「套用」重新計算結構差異。',
+    helpSchemaCustomNote: '標籤或屬性可填多個，請用逗號分隔。',
     helpReportsTitle: '下載報告',
     helpReportsDesc: '依目前視圖輸出對應摘要。',
     helpTipsTitle: '使用建議',
@@ -796,6 +871,7 @@ export const translations: Record<Language, Translations> = {
     schemaField: '字段',
     schemaFieldCount: '{count} 字段',
     schemaNoChanges: '没有结构差异',
+    schemaNoTableMatch: '当前模板（{preset}）没有匹配到表，请调整',
     schemaAttributeType: '类型',
     schemaAttributeSize: '大小',
     schemaAttributeDefault: '默认值',
@@ -804,6 +880,22 @@ export const translations: Record<Language, Translations> = {
     schemaPresetStruct: '结构/字段（struct/entry）',
     schemaPresetXsd: 'XSD（complexType/element）',
     schemaPresetTable: '表/字段（table/column）',
+    schemaPresetCustom: '自定义',
+    schemaCustomTitle: '自定义模板',
+    schemaCustomTableTags: '表节点标签',
+    schemaCustomFieldTags: '字段节点标签',
+    schemaCustomTableNameAttrs: '表名称属性',
+    schemaCustomFieldNameAttrs: '字段名称属性',
+    schemaCustomIgnoreNodes: '忽略节点',
+    schemaCustomIgnoreNamespaces: '忽略命名空间',
+    schemaCustomCaseSensitive: '名称大小写区分',
+    schemaCustomFieldSearchMode: '字段搜索范围',
+    schemaCustomFieldSearchChildren: '仅子层',
+    schemaCustomFieldSearchDescendants: '包含深层',
+    schemaCustomListHint: '可填多个，用逗号分隔',
+    schemaCustomApply: '应用',
+    schemaCustomReset: '还原',
+    schemaCustomOpen: '自定义设置',
     schemaSummaryTitle: 'Schema 摘要',
     schemaFilterAll: '全部',
     schemaFilterTables: '表',
@@ -816,6 +908,9 @@ export const translations: Record<Language, Translations> = {
     schemaFieldAddedLabel: '新增字段',
     schemaFieldRemovedLabel: '删除字段',
     schemaFieldModifiedLabel: '修改字段',
+
+    enabled: '启用',
+    disabled: '关闭',
 
     // Errors
     xmlParseError: 'XML 解析错误',
@@ -844,6 +939,11 @@ export const translations: Record<Language, Translations> = {
     helpViewInline: '合并视图显示新增与删除。',
     helpViewTree: '树状结构变更更清楚。',
     helpViewSchema: '以表与字段为主的结构差异视图。',
+    helpSchemaCustomTitle: 'Schema 自定义模板',
+    helpSchemaCustomStep1: '切换到 Schema 视图并选择「自定义」模板。',
+    helpSchemaCustomStep2: '点「自定义设置」调整表/字段标签与名称属性。',
+    helpSchemaCustomStep3: '点「应用」重新计算结构差异。',
+    helpSchemaCustomNote: '标签或属性可填多个，请用逗号分隔。',
     helpReportsTitle: '下载报告',
     helpReportsDesc: '按当前视图输出对应摘要。',
     helpTipsTitle: '使用建议',

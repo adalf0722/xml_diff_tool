@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, BookOpen, Layers, FileText, Download, Sparkles, Keyboard, AlertTriangle } from 'lucide-react';
+import { X, BookOpen, Layers, FileText, Download, Sparkles, Keyboard, AlertTriangle, SlidersHorizontal } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface HelpDrawerProps {
@@ -97,6 +97,21 @@ export function HelpDrawer({
                 <span className="ml-2">{t.helpViewSchema}</span>
               </li>
             </ul>
+          </section>
+
+          <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/60 p-4">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+              <SlidersHorizontal size={16} className="text-[var(--color-accent)]" />
+              <h3 className="text-sm font-semibold">{t.helpSchemaCustomTitle}</h3>
+            </div>
+            <ol className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+              <li>1. {t.helpSchemaCustomStep1}</li>
+              <li>2. {t.helpSchemaCustomStep2}</li>
+              <li>3. {t.helpSchemaCustomStep3}</li>
+            </ol>
+            <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+              {t.helpSchemaCustomNote}
+            </p>
           </section>
 
           <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/60 p-4">

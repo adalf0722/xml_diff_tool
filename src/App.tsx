@@ -32,6 +32,7 @@ import {
   getSchemaPresetConfig,
   DEFAULT_SCHEMA_PRESET_ID,
   type SchemaDiffResult,
+  type SchemaExtractConfig,
   type SchemaPresetId,
 } from './core/schema-diff';
 import { useDiffWorker } from './hooks/useDiffWorker';
@@ -97,6 +98,59 @@ const OVERVIEW_THRESHOLDS = {
   max: 0.8,
   chunkCount: 200,
 };
+
+const SCHEMA_PRESET_STORAGE_KEY = 'xmldiff-schema-preset';
+const SCHEMA_CUSTOM_STORAGE_KEY = 'xmldiff-schema-custom';
+const SCHEMA_PRESET_IDS: SchemaPresetId[] = ['struct', 'xsd', 'table', 'custom'];
+
+function isSchemaPresetId(value: string): value is SchemaPresetId {
+  return SCHEMA_PRESET_IDS.includes(value as SchemaPresetId);
+}
+
+function normalizeSchemaList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  const next = value
+    .map(item => String(item).trim())
+    .filter(item => item.length > 0);
+  return next.length > 0 ? next : fallback;
+}
+
+function normalizeSchemaListAllowEmpty(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return value
+    .map(item => String(item).trim())
+    .filter(item => item.length > 0);
+}
+
+function normalizeSchemaConfig(
+  raw: unknown,
+  fallback: SchemaExtractConfig
+): SchemaExtractConfig {
+  const record = (raw ?? {}) as Record<string, unknown>;
+  const ignoreNamespaces =
+    typeof record.ignoreNamespaces === 'boolean'
+      ? record.ignoreNamespaces
+      : fallback.ignoreNamespaces ?? false;
+  const caseSensitiveNames =
+    typeof record.caseSensitiveNames === 'boolean'
+      ? record.caseSensitiveNames
+      : fallback.caseSensitiveNames ?? true;
+  const fieldSearchMode =
+    record.fieldSearchMode === 'descendants' || record.fieldSearchMode === 'children'
+      ? record.fieldSearchMode
+      : fallback.fieldSearchMode ?? 'children';
+
+  return {
+    tableTags: normalizeSchemaList(record.tableTags, fallback.tableTags),
+    fieldTags: normalizeSchemaList(record.fieldTags, fallback.fieldTags),
+    tableNameAttrs: normalizeSchemaList(record.tableNameAttrs, fallback.tableNameAttrs),
+    fieldNameAttrs: normalizeSchemaList(record.fieldNameAttrs, fallback.fieldNameAttrs),
+    ignoreNodes: normalizeSchemaListAllowEmpty(record.ignoreNodes, fallback.ignoreNodes),
+    ignoreNamespaces,
+    caseSensitiveNames,
+    fieldSearchMode,
+  };
+}
 
 function createEmptySchemaDiff(): SchemaDiffResult {
   return {
@@ -228,11 +282,31 @@ function AppContent() {
   const [schemaDiff, setSchemaDiff] = useState<SchemaDiffResult>(() => createEmptySchemaDiff());
   const [schemaDiffCount, setSchemaDiffCount] = useState(0);
   const [schemaScope, setSchemaScope] = useState<'all' | 'table' | 'field'>('all');
-  const [schemaPresetId, setSchemaPresetId] = useState<SchemaPresetId>(DEFAULT_SCHEMA_PRESET_ID);
-  const schemaConfig = useMemo(
-    () => getSchemaPresetConfig(schemaPresetId),
-    [schemaPresetId]
+  const defaultSchemaCustomConfig = useMemo(
+    () => getSchemaPresetConfig(DEFAULT_SCHEMA_PRESET_ID),
+    []
   );
+  const [schemaPresetId, setSchemaPresetId] = useState<SchemaPresetId>(() => {
+    if (typeof window === 'undefined') return DEFAULT_SCHEMA_PRESET_ID;
+    const saved = localStorage.getItem(SCHEMA_PRESET_STORAGE_KEY);
+    return saved && isSchemaPresetId(saved) ? saved : DEFAULT_SCHEMA_PRESET_ID;
+  });
+  const [schemaCustomConfig, setSchemaCustomConfig] = useState<SchemaExtractConfig>(() => {
+    if (typeof window === 'undefined') return defaultSchemaCustomConfig;
+    const saved = localStorage.getItem(SCHEMA_CUSTOM_STORAGE_KEY);
+    if (!saved) return defaultSchemaCustomConfig;
+    try {
+      return normalizeSchemaConfig(JSON.parse(saved), defaultSchemaCustomConfig);
+    } catch {
+      return defaultSchemaCustomConfig;
+    }
+  });
+  const schemaConfig = useMemo(() => {
+    if (schemaPresetId === 'custom') {
+      return normalizeSchemaConfig(schemaCustomConfig, defaultSchemaCustomConfig);
+    }
+    return getSchemaPresetConfig(schemaPresetId);
+  }, [defaultSchemaCustomConfig, schemaCustomConfig, schemaPresetId]);
   const activeViewRef = useRef<ViewMode>(activeView);
   const pendingJumpIndexRef = useRef<number | null>(null);
   
@@ -409,6 +483,16 @@ function AppContent() {
   useEffect(() => {
     activeViewRef.current = activeView;
   }, [activeView]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(SCHEMA_PRESET_STORAGE_KEY, schemaPresetId);
+  }, [schemaPresetId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(SCHEMA_CUSTOM_STORAGE_KEY, JSON.stringify(schemaCustomConfig));
+  }, [schemaCustomConfig]);
 
   // Toggle a filter
   const handleFilterToggle = useCallback((type: DiffType) => {
@@ -1132,6 +1216,8 @@ function AppContent() {
                 onScopeChange={setSchemaScope}
                 schemaPresetId={schemaPresetId}
                 onPresetChange={setSchemaPresetId}
+                schemaCustomConfig={schemaCustomConfig}
+                onCustomConfigChange={setSchemaCustomConfig}
                 activeDiffIndex={currentDiffIndex}
                 onNavigate={handleNavigateToDiff}
                 onNavCountChange={setSchemaDiffCount}
