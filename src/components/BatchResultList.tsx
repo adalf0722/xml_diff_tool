@@ -171,6 +171,9 @@ export function BatchResultList({
   } | null>(null);
   const [detailDisplayXmlA, setDetailDisplayXmlA] = useState('');
   const [detailDisplayXmlB, setDetailDisplayXmlB] = useState('');
+  const [detailLargeFileModeOverride, setDetailLargeFileModeOverride] = useState<boolean | null>(
+    null
+  );
 
   // Create a map of diff results by id
   const diffMap = new Map<string, BatchResultItem>();
@@ -198,6 +201,52 @@ export function BatchResultList({
     const keyB = detailPair.fileB.name.toLowerCase();
     return xmlContentsB.get(keyB) || detailPair.fileB.content || '';
   }, [detailPair, xmlContentsB]);
+  const formatSize = useCallback((size: number) => {
+    if (size >= 1024 * 1024) {
+      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    if (size >= 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+    return `${size} B`;
+  }, []);
+  const countLines = useCallback((value: string) => {
+    if (!value) return 0;
+    return value.split('\n').length;
+  }, []);
+  const getParseStatus = useCallback(
+    (value: string, parseResult: ParseResult) => {
+      if (!value.trim()) {
+        return { label: t.emptyXml, className: 'text-[var(--color-text-muted)]' };
+      }
+      if (parseResult.error) {
+        return { label: t.invalidXml, className: 'text-red-400' };
+      }
+      if (parseResult.success) {
+        return { label: t.parseStatusValid, className: 'text-green-400' };
+      }
+      return { label: t.processing, className: 'text-yellow-400' };
+    },
+    [t]
+  );
+  const detailSummaryA = useMemo(() => {
+    const status = getParseStatus(detailDisplayXmlA, detailParseA);
+    return {
+      chars: detailDisplayXmlA.length,
+      lines: countLines(detailDisplayXmlA),
+      size: formatSize(detailDisplayXmlA.length),
+      status,
+    };
+  }, [countLines, detailDisplayXmlA, detailParseA, formatSize, getParseStatus]);
+  const detailSummaryB = useMemo(() => {
+    const status = getParseStatus(detailDisplayXmlB, detailParseB);
+    return {
+      chars: detailDisplayXmlB.length,
+      lines: countLines(detailDisplayXmlB),
+      size: formatSize(detailDisplayXmlB.length),
+      status,
+    };
+  }, [countLines, detailDisplayXmlB, detailParseB, formatSize, getParseStatus]);
 
   const handleViewDetail = useCallback((pair: MatchedFilePair) => {
     const diffResult = diffMap.get(pair.id);
@@ -251,6 +300,7 @@ export function BatchResultList({
       setDetailState('idle');
       setDetailProgress(null);
       setDetailError(null);
+      setDetailLargeFileModeOverride(null);
       return;
     }
 
@@ -279,6 +329,7 @@ export function BatchResultList({
     setActiveFilters(new Set(['added', 'removed', 'modified']));
     setCurrentDiffIndex(0);
     setOverviewModePref('auto');
+    setDetailLargeFileModeOverride(null);
 
     if (!detailXmlA.trim() || !detailXmlB.trim()) {
       setDetailState('error');
@@ -360,9 +411,19 @@ export function BatchResultList({
     setActiveFilters(new Set(['added', 'removed', 'modified']));
   }, [activeView]);
 
-  const isLargeFileMode = useMemo(() => {
+  const isLargeFile = useMemo(() => {
     return Math.max(detailXmlA.length, detailXmlB.length) >= LARGE_FILE_CHAR_THRESHOLD;
   }, [detailXmlA.length, detailXmlB.length]);
+  const isLargeFileMode = useMemo(
+    () => detailLargeFileModeOverride ?? isLargeFile,
+    [detailLargeFileModeOverride, isLargeFile]
+  );
+
+  useEffect(() => {
+    if (!isLargeFile) {
+      setDetailLargeFileModeOverride(null);
+    }
+  }, [isLargeFile]);
 
   const lineCoverage = useMemo(() => {
     if (!detailLineStats.total) return 0;
@@ -469,6 +530,70 @@ export function BatchResultList({
 
         {detailState === 'done' && !detailError && (
           <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] rounded-lg">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-2 px-4 pt-3 text-xs text-[var(--color-text-secondary)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 md:divide-x md:divide-[var(--color-border)]">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:pr-4">
+                  <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                    A
+                  </span>
+                  <span className="text-[var(--color-text-primary)] font-medium">{t.xmlALabel}</span>
+                  <span>{detailSummaryA.size}</span>
+                  <span className="text-[var(--color-text-muted)]">|</span>
+                  <span className="hidden lg:inline">
+                    {detailSummaryA.chars.toLocaleString()} {t.characters}
+                  </span>
+                  <span className="text-[var(--color-text-muted)]">|</span>
+                  <span>{detailSummaryA.lines.toLocaleString()} {t.lines}</span>
+                  <span className="text-[var(--color-text-muted)]">|</span>
+                  <span className={`hidden lg:inline ${detailSummaryA.status.className}`}>
+                    {detailSummaryA.status.label}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:pl-4">
+                  <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    B
+                  </span>
+                  <span className="text-[var(--color-text-primary)] font-medium">{t.xmlBLabel}</span>
+                  <span>{detailSummaryB.size}</span>
+                  <span className="text-[var(--color-text-muted)]">|</span>
+                  <span className="hidden lg:inline">
+                    {detailSummaryB.chars.toLocaleString()} {t.characters}
+                  </span>
+                  <span className="text-[var(--color-text-muted)]">|</span>
+                  <span>{detailSummaryB.lines.toLocaleString()} {t.lines}</span>
+                  <span className="text-[var(--color-text-muted)]">|</span>
+                  <span className={`hidden lg:inline ${detailSummaryB.status.className}`}>
+                    {detailSummaryB.status.label}
+                  </span>
+                </div>
+              </div>
+              {isLargeFile && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-amber-500/15 text-amber-300 border border-amber-500/40"
+                    title={t.largeFileModeDesc}
+                  >
+                    <span className="hidden sm:inline">{t.largeFileMode}</span>
+                    <span className="sm:hidden">{t.largeFileModeShort}</span>
+                  </span>
+                  {isLargeFileMode ? (
+                    <button
+                      onClick={() => setDetailLargeFileModeOverride(false)}
+                      className="ml-auto px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                    >
+                      {t.showFullRendering}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setDetailLargeFileModeOverride(null)}
+                      className="ml-auto px-2 py-1 rounded-md border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                    >
+                      {t.enableLargeFileMode}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex flex-col gap-2 px-4 pt-2 pb-1 md:flex-row md:items-center md:justify-between">
               <ViewTabs activeView={activeView} onViewChange={setActiveView} compact />
               <div className="self-end md:self-auto">
@@ -639,7 +764,7 @@ export function BatchResultList({
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-md transition-colors"
           >
             <ArrowLeft size={14} />
-            {t.backToList}
+            {t.backToBatch}
           </button>
         </div>
       </div>

@@ -230,6 +230,7 @@ export interface Translations {
   hasDiff: string;
   viewDetails: string;
   backToList: string;
+  backToBatch: string;
   exportAllReports: string;
   cancelBatch: string;
   cancel: string;
@@ -498,6 +499,7 @@ export const translations: Record<Language, Translations> = {
     hasDiff: 'Has Diff',
     viewDetails: 'View Details',
     backToList: 'Back to List',
+    backToBatch: 'Back to Batch Compare',
     exportAllReports: 'Export All Reports',
     cancelBatch: 'Cancel',
     cancel: 'Cancel',
@@ -765,6 +767,7 @@ export const translations: Record<Language, Translations> = {
     hasDiff: '有差異',
     viewDetails: '查看詳情',
     backToList: '返回列表',
+    backToBatch: '返回批量比較',
     exportAllReports: '匯出所有報告',
     cancelBatch: '取消',
     cancel: '取消',
@@ -1032,6 +1035,7 @@ export const translations: Record<Language, Translations> = {
     hasDiff: '有差异',
     viewDetails: '查看详情',
     backToList: '返回列表',
+    backToBatch: '返回批量比较',
     exportAllReports: '导出所有报告',
     cancelBatch: '取消',
     cancel: '取消',
