@@ -906,6 +906,12 @@ function AppContent() {
                 onReset={handleResetBatch}
                 xmlContentsA={xmlContentsA}
                 xmlContentsB={xmlContentsB}
+                computeDiff={computeDiff}
+                schemaPresetId={schemaPresetId}
+                onSchemaPresetChange={setSchemaPresetId}
+                schemaCustomConfig={schemaCustomConfig}
+                onSchemaCustomConfigChange={setSchemaCustomConfig}
+                schemaConfig={schemaConfig}
               />
             )}
           </div>
