@@ -7,7 +7,7 @@ import { useMemo, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Table, Hash, ChevronDown, ChevronRight, PanelRight, X } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { DiffType } from '../core/xml-diff';
-import type { SchemaDiffItem, SchemaDiffResult } from '../core/schema-diff';
+import type { SchemaDiffItem, SchemaDiffResult, SchemaPresetId } from '../core/schema-diff';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface SchemaViewProps {
@@ -15,6 +15,8 @@ interface SchemaViewProps {
   activeFilters: Set<DiffType>;
   schemaScope?: 'all' | 'table' | 'field';
   onScopeChange?: (scope: 'all' | 'table' | 'field') => void;
+  schemaPresetId?: SchemaPresetId;
+  onPresetChange?: (presetId: SchemaPresetId) => void;
   activeDiffIndex?: number;
   onNavigate?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
@@ -48,6 +50,8 @@ export function SchemaView({
   activeFilters,
   schemaScope: schemaScopeProp,
   onScopeChange,
+  schemaPresetId,
+  onPresetChange,
   activeDiffIndex,
   onNavigate,
   onNavCountChange,
@@ -61,6 +65,15 @@ export function SchemaView({
   const [schemaScopeState, setSchemaScopeState] = useState<'all' | 'table' | 'field'>('all');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const schemaScope = schemaScopeProp ?? schemaScopeState;
+  const showPresetSelector = schemaPresetId !== undefined && Boolean(onPresetChange);
+  const presetOptions = useMemo(
+    () => [
+      { id: 'struct' as const, label: t.schemaPresetStruct },
+      { id: 'xsd' as const, label: t.schemaPresetXsd },
+      { id: 'table' as const, label: t.schemaPresetTable },
+    ],
+    [t.schemaPresetStruct, t.schemaPresetTable, t.schemaPresetXsd]
+  );
   const updateSchemaScope = (scope: 'all' | 'table' | 'field') => {
     if (!schemaScopeProp) {
       setSchemaScopeState(scope);
@@ -71,7 +84,10 @@ export function SchemaView({
   const filteredItems = useMemo(() => {
     let items = schemaDiff.items.filter(item => activeFilters.has(item.type));
     if (schemaScope === 'table') {
-      items = items.filter(item => item.kind === 'table');
+      const tableNames = new Set(
+        items.filter(item => item.kind === 'table').map(item => item.table)
+      );
+      items = items.filter(item => item.kind === 'table' || tableNames.has(item.table));
     } else if (schemaScope === 'field') {
       items = items.filter(item => item.kind === 'field');
     }
@@ -235,6 +251,29 @@ export function SchemaView({
             <X size={14} />
           </button>
         </div>
+        {showPresetSelector && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              {t.schemaPresetLabel}
+            </span>
+            <div className="flex flex-wrap items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 p-1 text-[10px]">
+              {presetOptions.map(option => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onPresetChange?.(option.id)}
+                  className={`rounded px-2 py-1 font-semibold transition-colors ${
+                    schemaPresetId === option.id
+                      ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 p-1 text-[10px]">
             <button

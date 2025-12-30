@@ -27,7 +27,13 @@ import { EmptyStateCard } from './components/EmptyStateCard';
 import { HelpDrawer } from './components/HelpDrawer';
 import type { DiffResult, DiffType, UnifiedDiffLine } from './core/xml-diff';
 import type { ParseResult } from './core/xml-parser';
-import { buildSchemaDiff, type SchemaDiffResult } from './core/schema-diff';
+import {
+  buildSchemaDiff,
+  getSchemaPresetConfig,
+  DEFAULT_SCHEMA_PRESET_ID,
+  type SchemaDiffResult,
+  type SchemaPresetId,
+} from './core/schema-diff';
 import { useDiffWorker } from './hooks/useDiffWorker';
 import type { BatchProgress, BatchResultItem, InlineLineStats, SingleDiffProgress } from './hooks/useDiffWorker';
 import { matchFiles, type FileEntry, type MatchedFilePair } from './utils/file-matcher';
@@ -222,6 +228,11 @@ function AppContent() {
   const [schemaDiff, setSchemaDiff] = useState<SchemaDiffResult>(() => createEmptySchemaDiff());
   const [schemaDiffCount, setSchemaDiffCount] = useState(0);
   const [schemaScope, setSchemaScope] = useState<'all' | 'table' | 'field'>('all');
+  const [schemaPresetId, setSchemaPresetId] = useState<SchemaPresetId>(DEFAULT_SCHEMA_PRESET_ID);
+  const schemaConfig = useMemo(
+    () => getSchemaPresetConfig(schemaPresetId),
+    [schemaPresetId]
+  );
   const activeViewRef = useRef<ViewMode>(activeView);
   const pendingJumpIndexRef = useRef<number | null>(null);
   
@@ -587,7 +598,7 @@ function AppContent() {
       setParseResultA(result.parseA);
       setParseResultB(result.parseB);
       setDiffResults(result.results);
-      setSchemaDiff(buildSchemaDiff(result.parseA.root, result.parseB.root));
+      setSchemaDiff(buildSchemaDiff(result.parseA.root, result.parseB.root, schemaConfig));
       setLineDiffOps(result.lineDiff.ops);
       setInlineLineDiff(result.lineDiff.inlineLines);
       setLineLevelStats({
@@ -632,7 +643,19 @@ function AppContent() {
         }
       }
     }
-  }, [computeDiff, resetLineDiffState]);
+  }, [computeDiff, resetLineDiffState, schemaConfig]);
+
+  useEffect(() => {
+    if (!parseResultA.success || !parseResultB.success) return;
+    if (!parseResultA.root && !parseResultB.root) return;
+    setSchemaDiff(buildSchemaDiff(parseResultA.root, parseResultB.root, schemaConfig));
+  }, [
+    parseResultA.success,
+    parseResultB.success,
+    parseResultA.root,
+    parseResultB.root,
+    schemaConfig,
+  ]);
 
   useEffect(() => {
     const stopFps = startFpsMonitor((fps) => {
@@ -1107,6 +1130,8 @@ function AppContent() {
                 activeFilters={activeFilters}
                 schemaScope={schemaScope}
                 onScopeChange={setSchemaScope}
+                schemaPresetId={schemaPresetId}
+                onPresetChange={setSchemaPresetId}
                 activeDiffIndex={currentDiffIndex}
                 onNavigate={handleNavigateToDiff}
                 onNavCountChange={setSchemaDiffCount}

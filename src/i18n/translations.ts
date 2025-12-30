@@ -73,6 +73,10 @@ export interface Translations {
   schemaAttributeSize: string;
   schemaAttributeDefault: string;
   schemaInTable: string;
+  schemaPresetLabel: string;
+  schemaPresetStruct: string;
+  schemaPresetXsd: string;
+  schemaPresetTable: string;
   schemaSummaryTitle: string;
   schemaFilterAll: string;
   schemaFilterTables: string;
@@ -312,6 +316,10 @@ export const translations: Record<Language, Translations> = {
     schemaAttributeSize: 'size',
     schemaAttributeDefault: 'default',
     schemaInTable: 'in {table}',
+    schemaPresetLabel: 'Preset',
+    schemaPresetStruct: 'Struct/Entry',
+    schemaPresetXsd: 'XSD (complexType/element)',
+    schemaPresetTable: 'Table/Column',
     schemaSummaryTitle: 'Schema summary',
     schemaFilterAll: 'All',
     schemaFilterTables: 'Tables',
@@ -550,6 +558,10 @@ export const translations: Record<Language, Translations> = {
     schemaAttributeSize: '大小',
     schemaAttributeDefault: '預設值',
     schemaInTable: '屬於 {table}',
+    schemaPresetLabel: '模板',
+    schemaPresetStruct: '結構/欄位（struct/entry）',
+    schemaPresetXsd: 'XSD（complexType/element）',
+    schemaPresetTable: '表/欄位（table/column）',
     schemaSummaryTitle: 'Schema 摘要',
     schemaFilterAll: '全部',
     schemaFilterTables: '表',
@@ -788,6 +800,10 @@ export const translations: Record<Language, Translations> = {
     schemaAttributeSize: '大小',
     schemaAttributeDefault: '默认值',
     schemaInTable: '属于 {table}',
+    schemaPresetLabel: '模板',
+    schemaPresetStruct: '结构/字段（struct/entry）',
+    schemaPresetXsd: 'XSD（complexType/element）',
+    schemaPresetTable: '表/字段（table/column）',
     schemaSummaryTitle: 'Schema 摘要',
     schemaFilterAll: '全部',
     schemaFilterTables: '表',
