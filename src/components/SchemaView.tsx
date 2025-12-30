@@ -13,10 +13,13 @@ import { useLanguage } from '../contexts/LanguageContext';
 interface SchemaViewProps {
   schemaDiff: SchemaDiffResult;
   activeFilters: Set<DiffType>;
+  schemaScope?: 'all' | 'table' | 'field';
+  onScopeChange?: (scope: 'all' | 'table' | 'field') => void;
   activeDiffIndex?: number;
   onNavigate?: (index: number) => void;
   onNavCountChange?: (count: number) => void;
   onJumpComplete?: (index: number) => void;
+  onFilterToggle?: (type: DiffType) => void;
 }
 
 type SchemaViewRow =
@@ -43,20 +46,82 @@ const FIELD_ATTR_KEYS = ['type', 'size', 'defaultvalue'] as const;
 export function SchemaView({
   schemaDiff,
   activeFilters,
+  schemaScope: schemaScopeProp,
+  onScopeChange,
   activeDiffIndex,
   onNavigate,
   onNavCountChange,
   onJumpComplete,
+  onFilterToggle,
 }: SchemaViewProps) {
   const { t } = useLanguage();
   const listRef = useRef<VirtuosoHandle>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
+  const [schemaScopeState, setSchemaScopeState] = useState<'all' | 'table' | 'field'>('all');
+  const schemaScope = schemaScopeProp ?? schemaScopeState;
+  const updateSchemaScope = (scope: 'all' | 'table' | 'field') => {
+    if (!schemaScopeProp) {
+      setSchemaScopeState(scope);
+    }
+    onScopeChange?.(scope);
+  };
 
-  const filteredItems = useMemo(
-    () => schemaDiff.items.filter(item => activeFilters.has(item.type)),
-    [schemaDiff.items, activeFilters]
-  );
+  const filteredItems = useMemo(() => {
+    let items = schemaDiff.items.filter(item => activeFilters.has(item.type));
+    if (schemaScope === 'table') {
+      items = items.filter(item => item.kind === 'table');
+    } else if (schemaScope === 'field') {
+      items = items.filter(item => item.kind === 'field');
+    }
+    return items;
+  }, [schemaDiff.items, activeFilters, schemaScope]);
+
+  const schemaStats = useMemo(() => {
+    const result = {
+      table: { added: 0, removed: 0, modified: 0 },
+      field: { added: 0, removed: 0, modified: 0 },
+    };
+    for (const item of schemaDiff.items) {
+      if (!activeFilters.has(item.type)) continue;
+      if (item.kind === 'table') {
+        if (item.type === 'added') result.table.added += 1;
+        else if (item.type === 'removed') result.table.removed += 1;
+        else if (item.type === 'modified') result.table.modified += 1;
+      } else {
+        if (item.type === 'added') result.field.added += 1;
+        else if (item.type === 'removed') result.field.removed += 1;
+        else if (item.type === 'modified') result.field.modified += 1;
+      }
+    }
+    return result;
+  }, [schemaDiff.items, activeFilters]);
+
+  const applySchemaFilter = (scope: 'table' | 'field', type: DiffType) => {
+    updateSchemaScope(scope);
+    if (!onFilterToggle) return;
+    const targetTypes: DiffType[] = [type];
+    (['added', 'removed', 'modified'] as const).forEach(diffType => {
+      const shouldBeActive = targetTypes.includes(diffType);
+      const isActive = activeFilters.has(diffType);
+      if (shouldBeActive !== isActive) {
+        onFilterToggle(diffType);
+      }
+    });
+  };
+
+  const isStatActive = (scope: 'table' | 'field', type: DiffType) =>
+    schemaScope === scope && activeFilters.size === 1 && activeFilters.has(type);
+
+  const resetSchemaFilters = () => {
+    updateSchemaScope('all');
+    if (!onFilterToggle) return;
+    (['added', 'removed', 'modified'] as const).forEach(diffType => {
+      if (!activeFilters.has(diffType)) {
+        onFilterToggle(diffType);
+      }
+    });
+  };
 
   const { rows, navItems, navIndexToRowIndex, navIndexById } = useMemo(() => {
     const grouped = new Map<string, SchemaDiffItem[]>();
@@ -153,22 +218,20 @@ export function SchemaView({
     };
   }, [activeDiffIndex, navIndexToRowIndex, navItems, onJumpComplete]);
 
-  if (rows.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
-        <p>{t.schemaNoChanges}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full flex flex-col">
-      <Virtuoso
-        ref={listRef}
-        data={rows}
-        className="flex-1"
-        style={{ height: '100%' }}
-        itemContent={(_index, row) => {
+    <div className="h-full flex">
+      <div className="flex-1 min-w-0">
+        {rows.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
+            <p>{t.schemaNoChanges}</p>
+          </div>
+        ) : (
+          <Virtuoso
+            ref={listRef}
+            data={rows}
+            className="flex-1"
+            style={{ height: '100%' }}
+            itemContent={(_index, row) => {
           if (row.kind === 'group') {
             const { added, removed, modified } = row.counts;
             const highlightGroup = row.tableItemId && highlightedId === row.tableItemId;
@@ -335,7 +398,146 @@ export function SchemaView({
             </div>
           );
         }}
-      />
+          />
+        )}
+      </div>
+      <aside className="hidden lg:flex lg:w-72 xl:w-80 flex-col border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+        <div className="border-b border-[var(--color-border)] px-4 py-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t.schemaSummaryTitle}
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 p-1 text-[10px]">
+              <button
+                type="button"
+                onClick={() => updateSchemaScope('all')}
+                className={`rounded px-2 py-1 font-semibold transition-colors ${
+                  schemaScope === 'all'
+                    ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                {t.schemaFilterAll}
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSchemaScope('table')}
+                className={`rounded px-2 py-1 font-semibold transition-colors ${
+                  schemaScope === 'table'
+                    ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                {t.schemaFilterTables}
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSchemaScope('field')}
+                className={`rounded px-2 py-1 font-semibold transition-colors ${
+                  schemaScope === 'field'
+                    ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                }`}
+              >
+                {t.schemaFilterFields}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={resetSchemaFilters}
+              className="rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/60"
+            >
+              {t.resetFilters}
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto px-4 py-3 space-y-4 text-sm text-[var(--color-text-secondary)]">
+          {schemaScope !== 'field' && (
+            <section>
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {t.schemaTableChanges}
+              </div>
+              <div className="mt-2 grid gap-2">
+                <StatRow
+                  label={t.schemaTableAddedLabel}
+                  count={schemaStats.table.added}
+                  tone="added"
+                  active={isStatActive('table', 'added')}
+                  onClick={
+                    schemaStats.table.added > 0
+                      ? () => applySchemaFilter('table', 'added')
+                      : undefined
+                  }
+                />
+                <StatRow
+                  label={t.schemaTableRemovedLabel}
+                  count={schemaStats.table.removed}
+                  tone="removed"
+                  active={isStatActive('table', 'removed')}
+                  onClick={
+                    schemaStats.table.removed > 0
+                      ? () => applySchemaFilter('table', 'removed')
+                      : undefined
+                  }
+                />
+                <StatRow
+                  label={t.schemaTableModifiedLabel}
+                  count={schemaStats.table.modified}
+                  tone="modified"
+                  active={isStatActive('table', 'modified')}
+                  onClick={
+                    schemaStats.table.modified > 0
+                      ? () => applySchemaFilter('table', 'modified')
+                      : undefined
+                  }
+                />
+              </div>
+            </section>
+          )}
+          {schemaScope !== 'table' && (
+            <section>
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {t.schemaFieldChanges}
+              </div>
+              <div className="mt-2 grid gap-2">
+                <StatRow
+                  label={t.schemaFieldAddedLabel}
+                  count={schemaStats.field.added}
+                  tone="added"
+                  active={isStatActive('field', 'added')}
+                  onClick={
+                    schemaStats.field.added > 0
+                      ? () => applySchemaFilter('field', 'added')
+                      : undefined
+                  }
+                />
+                <StatRow
+                  label={t.schemaFieldRemovedLabel}
+                  count={schemaStats.field.removed}
+                  tone="removed"
+                  active={isStatActive('field', 'removed')}
+                  onClick={
+                    schemaStats.field.removed > 0
+                      ? () => applySchemaFilter('field', 'removed')
+                      : undefined
+                  }
+                />
+                <StatRow
+                  label={t.schemaFieldModifiedLabel}
+                  count={schemaStats.field.modified}
+                  tone="modified"
+                  active={isStatActive('field', 'modified')}
+                  onClick={
+                    schemaStats.field.modified > 0
+                      ? () => applySchemaFilter('field', 'modified')
+                      : undefined
+                  }
+                />
+              </div>
+            </section>
+          )}
+        </div>
+      </aside>
     </div>
   );
 }
@@ -400,4 +602,57 @@ function DiffBadge({ type, label }: { type: DiffType; label: string }) {
       {label}
     </span>
   );
+}
+
+function StatRow({
+  label,
+  count,
+  tone,
+  active = false,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  tone: DiffType;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const toneClass = getStatTone(tone);
+  const interactiveClass = onClick
+    ? 'cursor-pointer hover:border-[var(--color-accent)]/60 hover:bg-[var(--color-bg-tertiary)]/60'
+    : 'cursor-default';
+  const activeClass = active ? 'ring-1 ring-[var(--color-accent)]/60' : '';
+  return (
+    <div
+      className={`flex items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2.5 py-2 text-xs ${interactiveClass} ${activeClass}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onClick) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <span className="text-[var(--color-text-secondary)]">{label}</span>
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${toneClass}`}>
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function getStatTone(type: DiffType): string {
+  switch (type) {
+    case 'added':
+      return 'border-[var(--color-diff-added-border)]/50 bg-[var(--color-diff-added-bg)]/40 text-[var(--color-diff-added-text)]';
+    case 'removed':
+      return 'border-[var(--color-diff-removed-border)]/50 bg-[var(--color-diff-removed-bg)]/40 text-[var(--color-diff-removed-text)]';
+    case 'modified':
+      return 'border-[var(--color-diff-modified-border)]/50 bg-[var(--color-diff-modified-bg)]/40 text-[var(--color-diff-modified-text)]';
+    default:
+      return 'border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/60 text-[var(--color-text-muted)]';
+  }
 }

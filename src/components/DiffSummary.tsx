@@ -35,6 +35,7 @@ interface DiffSummaryProps {
   treeSummary?: { added: number; removed: number; modified: number; unchanged: number; total: number } | null;
   schemaStats?: SchemaDiffStats | null;
   schemaDiff?: SchemaDiffResult | null;
+  schemaScope?: 'all' | 'table' | 'field';
   compact?: boolean;
   className?: string;
 }
@@ -53,6 +54,7 @@ export function DiffSummary({
   treeSummary,
   schemaStats,
   schemaDiff,
+  schemaScope = 'all',
   compact = false,
   className = '',
 }: DiffSummaryProps) {
@@ -86,9 +88,37 @@ export function DiffSummary({
 
   const inlineStatsToUse = inlineStatsProp || inlineStats;
   const emptySchemaSummary = { added: 0, removed: 0, modified: 0, unchanged: 0, total: 0 };
+  const schemaScopedSummary = useMemo(() => {
+    if (!schemaStats) return emptySchemaSummary;
+    if (schemaScope === 'table') {
+      const total = schemaStats.tableAdded + schemaStats.tableRemoved;
+      return {
+        added: schemaStats.tableAdded,
+        removed: schemaStats.tableRemoved,
+        modified: 0,
+        unchanged: 0,
+        total,
+      };
+    }
+    if (schemaScope === 'field') {
+      const total =
+        schemaStats.fieldAdded +
+        schemaStats.fieldRemoved +
+        schemaStats.fieldModified +
+        schemaStats.fieldUnchanged;
+      return {
+        added: schemaStats.fieldAdded,
+        removed: schemaStats.fieldRemoved,
+        modified: schemaStats.fieldModified,
+        unchanged: schemaStats.fieldUnchanged,
+        total,
+      };
+    }
+    return schemaStats;
+  }, [schemaScope, schemaStats]);
   const summary =
     activeView === 'schema'
-      ? (schemaStats ?? emptySchemaSummary)
+      ? schemaScopedSummary
       : activeView === 'tree'
         ? (treeSummary ?? nodeSummary)
         : activeView === 'inline' && inlineStatsToUse
@@ -96,6 +126,8 @@ export function DiffSummary({
           : { added: lineLevelStats.added, removed: lineLevelStats.removed, modified: lineLevelStats.modified, unchanged: lineLevelStats.unchanged, total: lineLevelStats.total };
 
   const hasChanges = summary.added > 0 || summary.removed > 0 || summary.modified > 0;
+  const hasSummaryData =
+    activeView === 'schema' ? (schemaStats?.total ?? 0) > 0 : summary.total > 0;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -155,8 +187,14 @@ export function DiffSummary({
   ]);
 
   // Unit label for stats
+  const schemaUnitLabel =
+    schemaScope === 'table'
+      ? t.schemaFilterTables
+      : schemaScope === 'field'
+        ? t.schemaFilterFields
+        : t.statsFields;
   const unitLabel =
-    activeView === 'schema' ? t.statsFields : isLineBasedView ? t.statsLines : t.statsNodes;
+    activeView === 'schema' ? schemaUnitLabel : isLineBasedView ? t.statsLines : t.statsNodes;
   const treeScopeLabel =
     activeView === 'tree' && treeScope
       ? t.treeSummaryScopeLabel.replace(
@@ -286,12 +324,12 @@ export function DiffSummary({
           {filterBadges}
         </div>
         <div className="flex flex-wrap items-center gap-3 lg:ml-auto">
-          {!hasChanges && summary.total > 0 && (
+          {!hasChanges && hasSummaryData && (
             <span className="text-sm text-green-400 font-medium">
               {t.noDifferences}
             </span>
           )}
-          {summary.total === 0 && (
+          {!hasSummaryData && (
             <span className="text-sm text-[var(--color-text-muted)]">
               {t.enterXmlToCompare}
             </span>
@@ -324,13 +362,13 @@ export function DiffSummary({
 
       <div className="flex-1" />
 
-      {!hasChanges && summary.total > 0 && (
+      {!hasChanges && hasSummaryData && (
         <span className="text-sm text-green-400 font-medium">
           {t.noDifferences}
         </span>
       )}
 
-      {summary.total === 0 && (
+      {!hasSummaryData && (
         <span className="text-sm text-[var(--color-text-muted)]">
           {t.enterXmlToCompare}
         </span>

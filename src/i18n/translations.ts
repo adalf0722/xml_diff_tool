@@ -73,6 +73,18 @@ export interface Translations {
   schemaAttributeSize: string;
   schemaAttributeDefault: string;
   schemaInTable: string;
+  schemaSummaryTitle: string;
+  schemaFilterAll: string;
+  schemaFilterTables: string;
+  schemaFilterFields: string;
+  schemaTableChanges: string;
+  schemaFieldChanges: string;
+  schemaTableAddedLabel: string;
+  schemaTableRemovedLabel: string;
+  schemaTableModifiedLabel: string;
+  schemaFieldAddedLabel: string;
+  schemaFieldRemovedLabel: string;
+  schemaFieldModifiedLabel: string;
 
   // Errors
   xmlParseError: string;
@@ -300,6 +312,18 @@ export const translations: Record<Language, Translations> = {
     schemaAttributeSize: 'size',
     schemaAttributeDefault: 'default',
     schemaInTable: 'in {table}',
+    schemaSummaryTitle: 'Schema summary',
+    schemaFilterAll: 'All',
+    schemaFilterTables: 'Tables',
+    schemaFilterFields: 'Fields',
+    schemaTableChanges: 'Table changes',
+    schemaFieldChanges: 'Field changes',
+    schemaTableAddedLabel: 'Tables added',
+    schemaTableRemovedLabel: 'Tables removed',
+    schemaTableModifiedLabel: 'Tables modified',
+    schemaFieldAddedLabel: 'Fields added',
+    schemaFieldRemovedLabel: 'Fields removed',
+    schemaFieldModifiedLabel: 'Fields modified',
 
     // Errors
     xmlParseError: 'XML Parse Error',
@@ -526,6 +550,18 @@ export const translations: Record<Language, Translations> = {
     schemaAttributeSize: '大小',
     schemaAttributeDefault: '預設值',
     schemaInTable: '屬於 {table}',
+    schemaSummaryTitle: 'Schema 摘要',
+    schemaFilterAll: '全部',
+    schemaFilterTables: '表',
+    schemaFilterFields: '欄位',
+    schemaTableChanges: '表格差異',
+    schemaFieldChanges: '欄位差異',
+    schemaTableAddedLabel: '新增表',
+    schemaTableRemovedLabel: '刪除表',
+    schemaTableModifiedLabel: '修改表',
+    schemaFieldAddedLabel: '新增欄位',
+    schemaFieldRemovedLabel: '刪除欄位',
+    schemaFieldModifiedLabel: '修改欄位',
 
     // Errors
     xmlParseError: 'XML 解析錯誤',
@@ -752,6 +788,18 @@ export const translations: Record<Language, Translations> = {
     schemaAttributeSize: '大小',
     schemaAttributeDefault: '默认值',
     schemaInTable: '属于 {table}',
+    schemaSummaryTitle: 'Schema 摘要',
+    schemaFilterAll: '全部',
+    schemaFilterTables: '表',
+    schemaFilterFields: '字段',
+    schemaTableChanges: '表格差异',
+    schemaFieldChanges: '字段差异',
+    schemaTableAddedLabel: '新增表',
+    schemaTableRemovedLabel: '删除表',
+    schemaTableModifiedLabel: '修改表',
+    schemaFieldAddedLabel: '新增字段',
+    schemaFieldRemovedLabel: '删除字段',
+    schemaFieldModifiedLabel: '修改字段',
 
     // Errors
     xmlParseError: 'XML 解析错误',

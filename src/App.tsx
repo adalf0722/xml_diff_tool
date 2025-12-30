@@ -221,6 +221,7 @@ function AppContent() {
   const [sideBySideDiffCount, setSideBySideDiffCount] = useState(0);
   const [schemaDiff, setSchemaDiff] = useState<SchemaDiffResult>(() => createEmptySchemaDiff());
   const [schemaDiffCount, setSchemaDiffCount] = useState(0);
+  const [schemaScope, setSchemaScope] = useState<'all' | 'table' | 'field'>('all');
   const activeViewRef = useRef<ViewMode>(activeView);
   const pendingJumpIndexRef = useRef<number | null>(null);
   
@@ -986,6 +987,7 @@ function AppContent() {
                 treeSummary={activeView === 'tree' ? treeSummary : undefined}
                 schemaStats={activeView === 'schema' ? schemaDiff.stats : undefined}
                 schemaDiff={activeView === 'schema' ? schemaDiff : undefined}
+                schemaScope={activeView === 'schema' ? schemaScope : undefined}
                 compact
               />
               {showOverviewControls && (
@@ -1103,10 +1105,13 @@ function AppContent() {
               <SchemaView
                 schemaDiff={schemaDiff}
                 activeFilters={activeFilters}
+                schemaScope={schemaScope}
+                onScopeChange={setSchemaScope}
                 activeDiffIndex={currentDiffIndex}
                 onNavigate={handleNavigateToDiff}
                 onNavCountChange={setSchemaDiffCount}
                 onJumpComplete={handleJumpComplete}
+                onFilterToggle={handleFilterToggle}
               />
             )}
           </div>
