@@ -90,7 +90,7 @@ export function BatchResultList({
       : { added: 0, removed: 0, modified: 0 };
 
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {/* Back button */}
         <div className="flex items-center gap-4">
           <button
@@ -122,7 +122,7 @@ export function BatchResultList({
         </div>
 
         {/* Diff view */}
-        <div className="border border-[var(--color-border)] rounded-xl overflow-hidden">
+        <div className="h-[70vh] min-h-[420px] border border-[var(--color-border)] rounded-xl overflow-hidden">
           <SideBySideView
             xmlA={xmlA}
             xmlB={xmlB}
