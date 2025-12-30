@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Translations for XML Diff Tool
  * Supports: English (EN), Traditional Chinese (zh-TW), Simplified Chinese (zh-CN)
  */
@@ -39,6 +39,7 @@ export interface Translations {
   sideBySide: string;
   inline: string;
   treeView: string;
+  schemaView: string;
 
   // Diff Summary
   diffSummary: string;
@@ -62,6 +63,16 @@ export interface Translations {
   expandAll: string;
   collapseAll: string;
   parseXmlToViewTree: string;
+
+  // Schema View
+  schemaTable: string;
+  schemaField: string;
+  schemaFieldCount: string;
+  schemaNoChanges: string;
+  schemaAttributeType: string;
+  schemaAttributeSize: string;
+  schemaAttributeDefault: string;
+  schemaInTable: string;
 
   // Errors
   xmlParseError: string;
@@ -89,6 +100,7 @@ export interface Translations {
   helpViewSide: string;
   helpViewInline: string;
   helpViewTree: string;
+  helpViewSchema: string;
   helpReportsTitle: string;
   helpReportsDesc: string;
   helpTipsTitle: string;
@@ -132,6 +144,7 @@ export interface Translations {
   downloadSide: string;
   downloadInline: string;
   downloadTree: string;
+  downloadSchema: string;
 
   // Filter hints
   modifiedNotAvailableInline: string;
@@ -142,6 +155,7 @@ export interface Translations {
   // Stats unit
   statsLines: string;
   statsNodes: string;
+  statsFields: string;
 
   // Tree view placeholders
   addedOnOtherSide: string;
@@ -252,6 +266,7 @@ export const translations: Record<Language, Translations> = {
     sideBySide: 'Side by Side',
     inline: 'Inline',
     treeView: 'Tree View',
+    schemaView: 'Schema',
 
     // Diff Summary
     diffSummary: 'Diff Summary:',
@@ -276,6 +291,16 @@ export const translations: Record<Language, Translations> = {
     collapseAll: 'Collapse All',
     parseXmlToViewTree: 'Parse XML to view tree structure',
 
+    // Schema View
+    schemaTable: 'Table',
+    schemaField: 'Field',
+    schemaFieldCount: '{count} fields',
+    schemaNoChanges: 'No schema differences',
+    schemaAttributeType: 'type',
+    schemaAttributeSize: 'size',
+    schemaAttributeDefault: 'default',
+    schemaInTable: 'in {table}',
+
     // Errors
     xmlParseError: 'XML Parse Error',
     xmlParseErrorDesc: 'Please check if the XML format is correct. Detailed error messages are shown below the input boxes.',
@@ -296,12 +321,13 @@ export const translations: Record<Language, Translations> = {
     helpSubtitle: 'Quick tips to compare XML files faster.',
     helpQuickStartTitle: 'Quick start',
     helpQuickStep1: 'Paste or upload XML in A and B.',
-    helpQuickStep2: 'Pick a view (Side by Side / Inline / Tree).',
+    helpQuickStep2: 'Pick a view (Side by Side / Inline / Tree / Schema).',
     helpQuickStep3: 'Use diff navigation or download a report.',
     helpViewsTitle: 'View modes',
     helpViewSide: 'Line-by-line comparison with synced scrolling.',
     helpViewInline: 'Unified diff with additions and removals.',
     helpViewTree: 'Tree diff for structural changes.',
+    helpViewSchema: 'Schema view for tables and fields.',
     helpReportsTitle: 'Reports',
     helpReportsDesc: 'Download summaries that match the current view.',
     helpTipsTitle: 'Tips',
@@ -345,6 +371,7 @@ export const translations: Record<Language, Translations> = {
     downloadSide: 'Side-by-Side Summary',
     downloadInline: 'Inline Summary',
     downloadTree: 'Tree Summary',
+    downloadSchema: 'Schema Summary',
 
     // Filter hints
     modifiedNotAvailableInline: '"Modified" filter is not available in inline view (use Added/Removed instead)',
@@ -355,6 +382,7 @@ export const translations: Record<Language, Translations> = {
     // Stats unit
     statsLines: 'lines',
     statsNodes: 'nodes',
+    statsFields: 'fields',
 
     // Tree view placeholders
     addedOnOtherSide: 'Added on other side',
@@ -464,6 +492,7 @@ export const translations: Record<Language, Translations> = {
     sideBySide: '並排對比',
     inline: '內聯對比',
     treeView: '樹狀檢視',
+    schemaView: 'Schema 檢視',
 
     // Diff Summary
     diffSummary: '差異摘要:',
@@ -488,6 +517,16 @@ export const translations: Record<Language, Translations> = {
     collapseAll: '摺疊全部',
     parseXmlToViewTree: '解析 XML 以檢視樹狀結構',
 
+    // Schema View
+    schemaTable: '表',
+    schemaField: '欄位',
+    schemaFieldCount: '{count} 欄位',
+    schemaNoChanges: '沒有結構差異',
+    schemaAttributeType: '型別',
+    schemaAttributeSize: '大小',
+    schemaAttributeDefault: '預設值',
+    schemaInTable: '屬於 {table}',
+
     // Errors
     xmlParseError: 'XML 解析錯誤',
     xmlParseErrorDesc: '請檢查輸入的 XML 格式是否正確。詳細錯誤訊息顯示在對應的輸入框下方。',
@@ -508,12 +547,13 @@ export const translations: Record<Language, Translations> = {
     helpSubtitle: '快速了解 XML 比對流程。',
     helpQuickStartTitle: '快速上手',
     helpQuickStep1: '貼上或上傳 XML A 與 XML B。',
-    helpQuickStep2: '選擇檢視模式（並排／內聯／樹狀）。',
+    helpQuickStep2: '選擇檢視模式（並排／內聯／樹狀／Schema）。',
     helpQuickStep3: '用導覽跳轉或下載報告。',
     helpViewsTitle: '檢視模式',
     helpViewSide: '逐行並排比對，支援同步捲動。',
     helpViewInline: '合併視圖顯示新增與刪除。',
     helpViewTree: '樹狀結構變更更清楚。',
+    helpViewSchema: '以表與欄位為主的結構差異檢視。',
     helpReportsTitle: '下載報告',
     helpReportsDesc: '依目前視圖輸出對應摘要。',
     helpTipsTitle: '使用建議',
@@ -557,6 +597,7 @@ export const translations: Record<Language, Translations> = {
     downloadSide: '並排摘要',
     downloadInline: '內聯摘要',
     downloadTree: '樹狀摘要',
+    downloadSchema: 'Schema 摘要',
 
     // Filter hints
     modifiedNotAvailableInline: '「修改」篩選器不適用於內聯視圖（請使用新增/刪除）',
@@ -567,6 +608,7 @@ export const translations: Record<Language, Translations> = {
     // Stats unit
     statsLines: '行',
     statsNodes: '節點',
+    statsFields: '欄位',
 
     // Tree view placeholders
     addedOnOtherSide: '新增於另一邊',
@@ -676,6 +718,7 @@ export const translations: Record<Language, Translations> = {
     sideBySide: '并排对比',
     inline: '内联对比',
     treeView: '树形视图',
+    schemaView: 'Schema 视图',
 
     // Diff Summary
     diffSummary: '差异摘要:',
@@ -700,6 +743,16 @@ export const translations: Record<Language, Translations> = {
     collapseAll: '折叠全部',
     parseXmlToViewTree: '解析 XML 以查看树形结构',
 
+    // Schema View
+    schemaTable: '表',
+    schemaField: '字段',
+    schemaFieldCount: '{count} 字段',
+    schemaNoChanges: '没有结构差异',
+    schemaAttributeType: '类型',
+    schemaAttributeSize: '大小',
+    schemaAttributeDefault: '默认值',
+    schemaInTable: '属于 {table}',
+
     // Errors
     xmlParseError: 'XML 解析错误',
     xmlParseErrorDesc: '请检查输入的 XML 格式是否正确。详细错误信息显示在对应的输入框下方。',
@@ -720,12 +773,13 @@ export const translations: Record<Language, Translations> = {
     helpSubtitle: '快速了解 XML 对比流程。',
     helpQuickStartTitle: '快速上手',
     helpQuickStep1: '粘贴或上传 XML A 与 XML B。',
-    helpQuickStep2: '选择视图模式（并排／内联／树状）。',
+    helpQuickStep2: '选择视图模式（并排／内联／树状／Schema）。',
     helpQuickStep3: '用导览跳转或下载报告。',
     helpViewsTitle: '视图模式',
     helpViewSide: '逐行并排对比，支持同步滚动。',
     helpViewInline: '合并视图显示新增与删除。',
     helpViewTree: '树状结构变更更清楚。',
+    helpViewSchema: '以表与字段为主的结构差异视图。',
     helpReportsTitle: '下载报告',
     helpReportsDesc: '按当前视图输出对应摘要。',
     helpTipsTitle: '使用建议',
@@ -769,6 +823,7 @@ export const translations: Record<Language, Translations> = {
     downloadSide: '并排摘要',
     downloadInline: '内联摘要',
     downloadTree: '树状摘要',
+    downloadSchema: 'Schema 摘要',
 
     // Filter hints
     modifiedNotAvailableInline: '"修改"筛选器不适用于内联视图（请使用新增/删除）',
@@ -779,6 +834,7 @@ export const translations: Record<Language, Translations> = {
     // Stats unit
     statsLines: '行',
     statsNodes: '节点',
+    statsFields: '字段',
 
     // Tree view placeholders
     addedOnOtherSide: '新增于另一侧',

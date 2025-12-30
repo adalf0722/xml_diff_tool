@@ -7,6 +7,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { Plus, Minus, RefreshCw, Equal, Download, ChevronDown, RotateCcw } from 'lucide-react';
 import { getDiffSummary, generateLineDiff } from '../core/xml-diff';
 import type { DiffResult, DiffType } from '../core/xml-diff';
+import type { SchemaDiffResult, SchemaDiffStats } from '../core/schema-diff';
 import { useLanguage } from '../contexts/LanguageContext';
 import { generateDiffReport, type DiffReportFormat, type DiffReportType } from '../utils/diff-report';
 import type { ViewMode } from './ViewTabs';
@@ -32,6 +33,8 @@ interface DiffSummaryProps {
   inlineStats?: { added: number; removed: number; unchanged: number; total: number } | null;
   treeScope?: 'full' | 'diff-only';
   treeSummary?: { added: number; removed: number; modified: number; unchanged: number; total: number } | null;
+  schemaStats?: SchemaDiffStats | null;
+  schemaDiff?: SchemaDiffResult | null;
   compact?: boolean;
   className?: string;
 }
@@ -48,6 +51,8 @@ export function DiffSummary({
   inlineStats: inlineStatsProp,
   treeScope,
   treeSummary,
+  schemaStats,
+  schemaDiff,
   compact = false,
   className = '',
 }: DiffSummaryProps) {
@@ -80,12 +85,15 @@ export function DiffSummary({
   const downloadMenuRef = useRef<HTMLDivElement>(null);
 
   const inlineStatsToUse = inlineStatsProp || inlineStats;
+  const emptySchemaSummary = { added: 0, removed: 0, modified: 0, unchanged: 0, total: 0 };
   const summary =
-    activeView === 'tree'
-      ? (treeSummary ?? nodeSummary)
-      : activeView === 'inline' && inlineStatsToUse
-        ? { added: inlineStatsToUse.added, removed: inlineStatsToUse.removed, modified: 0, unchanged: inlineStatsToUse.unchanged, total: inlineStatsToUse.total }
-        : { added: lineLevelStats.added, removed: lineLevelStats.removed, modified: lineLevelStats.modified, unchanged: lineLevelStats.unchanged, total: lineLevelStats.total };
+    activeView === 'schema'
+      ? (schemaStats ?? emptySchemaSummary)
+      : activeView === 'tree'
+        ? (treeSummary ?? nodeSummary)
+        : activeView === 'inline' && inlineStatsToUse
+          ? { added: inlineStatsToUse.added, removed: inlineStatsToUse.removed, modified: 0, unchanged: inlineStatsToUse.unchanged, total: inlineStatsToUse.total }
+          : { added: lineLevelStats.added, removed: lineLevelStats.removed, modified: lineLevelStats.modified, unchanged: lineLevelStats.unchanged, total: lineLevelStats.total };
 
   const hasChanges = summary.added > 0 || summary.removed > 0 || summary.modified > 0;
 
@@ -108,6 +116,7 @@ export function DiffSummary({
       xmlA,
       xmlB,
       summaryOverride: summary,
+      schemaDiff: schemaDiff ?? undefined,
     });
     setIsDownloadMenuOpen(false);
   };
@@ -117,6 +126,11 @@ export function DiffSummary({
       options.push(
         { reportType: 'node', format: 'html', label: `${t.downloadTree} (${t.downloadHtml})` },
         { reportType: 'node', format: 'text', label: `${t.downloadTree} (${t.downloadText})` }
+      );
+    } else if (activeView === 'schema') {
+      options.push(
+        { reportType: 'schema', format: 'html', label: `${t.downloadSchema} (${t.downloadHtml})` },
+        { reportType: 'schema', format: 'text', label: `${t.downloadSchema} (${t.downloadText})` }
       );
     } else if (activeView === 'inline') {
       options.push(
@@ -134,13 +148,15 @@ export function DiffSummary({
     activeView,
     t.downloadHtml,
     t.downloadInline,
+    t.downloadSchema,
     t.downloadSide,
     t.downloadText,
     t.downloadTree,
   ]);
 
   // Unit label for stats
-  const unitLabel = isLineBasedView ? t.statsLines : t.statsNodes;
+  const unitLabel =
+    activeView === 'schema' ? t.statsFields : isLineBasedView ? t.statsLines : t.statsNodes;
   const treeScopeLabel =
     activeView === 'tree' && treeScope
       ? t.treeSummaryScopeLabel.replace(
@@ -153,6 +169,7 @@ export function DiffSummary({
       {t.sideOnlyA} = {t.removed} · {t.sideOnlyB} = {t.added}
     </span>
   );
+  const showSideLegend = activeView !== 'schema';
 
   const containerClass = compact
     ? 'flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4'
@@ -204,7 +221,7 @@ export function DiffSummary({
         </span>
       </div>
 
-      {sideLegend}
+      {showSideLegend && sideLegend}
 
       {/* Reset button - only show when not in default state */}
       {!isDefaultFilterState && (
@@ -220,7 +237,8 @@ export function DiffSummary({
     </div>
   );
 
-  const downloadButton = hasChanges ? (
+  const allowDownload = true;
+  const downloadButton = allowDownload && hasChanges ? (
     <div className="relative" ref={downloadMenuRef}>
       <button
         onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}

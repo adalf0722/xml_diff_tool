@@ -4,11 +4,12 @@
  */
 
 import type { DiffResult } from '../core/xml-diff';
+import type { SchemaDiffResult } from '../core/schema-diff';
 import { generateLineDiff, getDiffSummary } from '../core/xml-diff';
 import { prettyPrintXML } from './pretty-print';
 import { diffLines } from './line-diff';
 
-export type DiffReportType = 'side' | 'inline' | 'node';
+export type DiffReportType = 'side' | 'inline' | 'node' | 'schema';
 export type DiffReportFormat = 'html' | 'text';
 
 export interface DiffReportSummary {
@@ -26,6 +27,7 @@ interface DiffReportOptions {
   xmlA?: string;
   xmlB?: string;
   summaryOverride?: DiffReportSummary;
+  schemaDiff?: SchemaDiffResult;
 }
 
 /**
@@ -38,19 +40,27 @@ export function generateDiffReport({
   xmlA,
   xmlB,
   summaryOverride,
+  schemaDiff,
 }: DiffReportOptions) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const typeLabel = reportType === 'side' ? 'side' : reportType === 'inline' ? 'inline' : 'nodes';
+  const typeLabel =
+    reportType === 'side'
+      ? 'side'
+      : reportType === 'inline'
+        ? 'inline'
+        : reportType === 'node'
+          ? 'nodes'
+          : 'schema';
   const filename = `xml-diff-${typeLabel}-${timestamp}.${format === 'html' ? 'html' : 'txt'}`;
 
   let content: string;
   let mimeType: string;
 
   if (format === 'html') {
-    content = generateHtmlReport(diffResults, reportType, xmlA, xmlB, summaryOverride);
+    content = generateHtmlReport(diffResults, reportType, xmlA, xmlB, summaryOverride, schemaDiff);
     mimeType = 'text/html';
   } else {
-    content = generateTextReport(diffResults, reportType, xmlA, xmlB, summaryOverride);
+    content = generateTextReport(diffResults, reportType, xmlA, xmlB, summaryOverride, schemaDiff);
     mimeType = 'text/plain';
   }
 
@@ -74,13 +84,17 @@ function generateHtmlReport(
   reportType: DiffReportType,
   xmlA?: string,
   xmlB?: string,
-  summaryOverride?: DiffReportSummary
+  summaryOverride?: DiffReportSummary,
+  schemaDiff?: SchemaDiffResult
 ): string {
   if (reportType === 'side') {
     return generateSideHtmlReport(xmlA, xmlB);
   }
   if (reportType === 'inline') {
     return generateInlineHtmlReport(xmlA, xmlB);
+  }
+  if (reportType === 'schema') {
+    return generateSchemaHtmlReport(schemaDiff, summaryOverride);
   }
   return generateNodeHtmlReport(diffResults, summaryOverride);
 }
@@ -512,6 +526,223 @@ function generateNodeHtmlReport(
 </html>`;
 }
 
+function buildSchemaSummary(
+  schemaDiff?: SchemaDiffResult,
+  summaryOverride?: DiffReportSummary
+): DiffReportSummary {
+  if (summaryOverride) return summaryOverride;
+  if (!schemaDiff) {
+    return { added: 0, removed: 0, modified: 0, unchanged: 0, total: 0 };
+  }
+  const { stats } = schemaDiff;
+  return {
+    added: stats.added,
+    removed: stats.removed,
+    modified: stats.modified,
+    unchanged: stats.unchanged,
+    total: stats.total,
+  };
+}
+
+function generateSchemaHtmlReport(
+  schemaDiff?: SchemaDiffResult,
+  summaryOverride?: DiffReportSummary
+): string {
+  const summary = buildSchemaSummary(schemaDiff, summaryOverride);
+  const timestamp = new Date().toLocaleString();
+  const items = schemaDiff?.items ?? [];
+  const grouped = new Map<string, SchemaDiffResult['items']>();
+  for (const item of items) {
+    if (!grouped.has(item.table)) grouped.set(item.table, []);
+    grouped.get(item.table)!.push(item);
+  }
+  const tables = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
+
+  const tableSections = tables.map(table => {
+    const tableItems = grouped.get(table) ?? [];
+    const itemBlocks = tableItems.map(item => {
+      const typeLabel = item.type.toUpperCase();
+      const kindLabel = item.kind === 'table' ? 'Table' : 'Field';
+      const title = item.kind === 'table' ? item.table : item.field ?? '';
+      const fieldMeta =
+        item.kind === 'table' && item.fieldCount !== undefined
+          ? `<div class="meta">Fields: ${item.fieldCount}</div>`
+          : item.kind === 'field'
+            ? `<div class="meta">Table: ${escapeHtml(item.table)}</div>`
+            : '';
+      const attrList = item.kind === 'field' && item.fieldDef
+        ? [
+            { key: 'type', value: item.fieldDef.type },
+            { key: 'size', value: item.fieldDef.size },
+            { key: 'defaultvalue', value: item.fieldDef.defaultvalue },
+          ]
+            .map(attr => {
+              if (!attr.value) return '';
+              return `<span class="attr-chip">${attr.key}: ${escapeHtml(attr.value)}</span>`;
+            })
+            .filter(Boolean)
+            .join('')
+        : '';
+      const changeRows = item.kind === 'field' && item.changes
+        ? item.changes
+            .map(change => {
+              const oldValue = escapeHtml(change.oldValue || '-');
+              const newValue = escapeHtml(change.newValue || '-');
+              return `
+                <div class="change-row">
+                  <span class="change-key">${change.key}</span>
+                  <span class="change-old">${oldValue}</span>
+                  <span class="change-arrow">-></span>
+                  <span class="change-new">${newValue}</span>
+                </div>
+              `;
+            })
+            .join('')
+        : '';
+      const detailSection = changeRows
+        ? `<div class="change-list">${changeRows}</div>`
+        : attrList
+          ? `<div class="attr-list">${attrList}</div>`
+          : '';
+
+      return `
+        <div class="schema-item ${item.type}">
+          <div class="schema-header">
+            <span class="schema-type">${typeLabel}</span>
+            <span class="schema-kind">${kindLabel}</span>
+            <span class="schema-name">${escapeHtml(title)}</span>
+          </div>
+          ${fieldMeta}
+          ${detailSection}
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="table-group">
+        <div class="table-title">Table: ${escapeHtml(table)}</div>
+        <div class="schema-list">
+          ${itemBlocks || '<div class="empty">No changes in this table.</div>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const contentSection = items.length === 0
+    ? `<p class="empty">No schema differences.</p>`
+    : tableSections;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XML Diff Schema Report - ${timestamp}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #f1f5f9; margin-bottom: 0.5rem; }
+    .timestamp { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
+    .summary {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .stat {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .stat-added { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .stat-removed { background: rgba(239,68,68,0.2); color: #f87171; }
+    .stat-modified { background: rgba(234,179,8,0.2); color: #facc15; }
+    .stat-unchanged { background: rgba(100,116,139,0.2); color: #94a3b8; }
+
+    .table-group { margin-bottom: 2rem; }
+    .table-title {
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+    }
+    .schema-list { display: grid; gap: 0.75rem; }
+    .schema-item {
+      background: #1e293b;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-left: 3px solid transparent;
+    }
+    .schema-item.added { border-color: #4ade80; }
+    .schema-item.removed { border-color: #f87171; }
+    .schema-item.modified { border-color: #facc15; }
+    .schema-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: baseline;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+    }
+    .schema-type { color: #94a3b8; font-weight: 600; }
+    .schema-kind { color: #64748b; text-transform: uppercase; font-size: 0.7rem; }
+    .schema-name { color: #f1f5f9; font-weight: 600; }
+    .meta { color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.5rem; }
+    .attr-list, .change-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .attr-chip {
+      background: rgba(148,163,184,0.2);
+      color: #cbd5f5;
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.7rem;
+    }
+    .change-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(30,41,59,0.8);
+      border-radius: 0.5rem;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.7rem;
+      border: 1px solid rgba(148,163,184,0.2);
+    }
+    .change-key { color: #cbd5e1; text-transform: uppercase; font-size: 0.65rem; }
+    .change-old { color: #f87171; font-weight: 600; }
+    .change-new { color: #4ade80; font-weight: 600; }
+    .change-arrow { color: #94a3b8; }
+    .empty { color: #94a3b8; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>XML Diff Schema Summary</h1>
+    <p class="timestamp">Generated: ${timestamp}</p>
+    <div class="summary">
+      <div class="stat stat-added">+ Added: ${summary.added}</div>
+      <div class="stat stat-removed">- Removed: ${summary.removed}</div>
+      <div class="stat stat-modified">~ Modified: ${summary.modified}</div>
+      <div class="stat stat-unchanged">= Unchanged: ${summary.unchanged}</div>
+    </div>
+    ${contentSection}
+  </div>
+</body>
+</html>`;
+}
+
 /**
  * Generate plain text report
  */
@@ -520,13 +751,17 @@ function generateTextReport(
   reportType: DiffReportType,
   xmlA?: string,
   xmlB?: string,
-  summaryOverride?: DiffReportSummary
+  summaryOverride?: DiffReportSummary,
+  schemaDiff?: SchemaDiffResult
 ): string {
   if (reportType === 'side') {
     return generateSideTextReport(xmlA, xmlB);
   }
   if (reportType === 'inline') {
     return generateInlineTextReport(xmlA, xmlB);
+  }
+  if (reportType === 'schema') {
+    return generateSchemaTextReport(schemaDiff, summaryOverride);
   }
   return generateNodeTextReport(diffResults, summaryOverride);
 }
@@ -652,6 +887,77 @@ ${separator}
           report += `      + ${attr.name}: ${attr.newValue}\n`;
         } else {
           report += `      - ${attr.name}: ${attr.oldValue}\n`;
+        }
+      }
+    }
+  }
+
+  return report;
+}
+
+function generateSchemaTextReport(
+  schemaDiff?: SchemaDiffResult,
+  summaryOverride?: DiffReportSummary
+): string {
+  const summary = buildSchemaSummary(schemaDiff, summaryOverride);
+  const timestamp = new Date().toLocaleString();
+  const separator = '='.repeat(60);
+  const items = schemaDiff?.items ?? [];
+  const grouped = new Map<string, SchemaDiffResult['items']>();
+  for (const item of items) {
+    if (!grouped.has(item.table)) grouped.set(item.table, []);
+    grouped.get(item.table)!.push(item);
+  }
+  const tables = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
+
+  let report = `XML DIFF SCHEMA REPORT
+${separator}
+Generated: ${timestamp}
+
+SUMMARY
+${'-'.repeat(30)}
++ Added:     ${summary.added}
+- Removed:   ${summary.removed}
+~ Modified:  ${summary.modified}
+= Unchanged: ${summary.unchanged}
+  Total:     ${summary.total}
+
+SCHEMA CHANGES (${items.length})
+${separator}
+`;
+
+  if (items.length === 0) {
+    report += 'No schema differences.\n';
+    return report;
+  }
+
+  for (const table of tables) {
+    report += `\nTABLE: ${table}\n`;
+    const tableItems = grouped.get(table) ?? [];
+    for (const item of tableItems) {
+      const typeSymbol = item.type === 'added' ? '+' : item.type === 'removed' ? '-' : '~';
+      if (item.kind === 'table') {
+        report += `  [${typeSymbol}] TABLE ${item.table}`;
+        if (item.fieldCount !== undefined) {
+          report += ` (fields: ${item.fieldCount})`;
+        }
+        report += '\n';
+        continue;
+      }
+      report += `  [${typeSymbol}] FIELD ${item.field ?? ''}\n`;
+      if (item.changes && item.changes.length > 0) {
+        for (const change of item.changes) {
+          report += `      ${change.key}: ${change.oldValue || '-'} -> ${change.newValue || '-'}\n`;
+        }
+      } else if (item.fieldDef) {
+        const fieldAttrs: Array<{ key: string; value?: string }> = [
+          { key: 'type', value: item.fieldDef.type },
+          { key: 'size', value: item.fieldDef.size },
+          { key: 'defaultvalue', value: item.fieldDef.defaultvalue },
+        ];
+        for (const attr of fieldAttrs) {
+          if (!attr.value) continue;
+          report += `      ${attr.key}: ${attr.value}\n`;
         }
       }
     }

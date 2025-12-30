@@ -92,6 +92,10 @@ export function HelpDrawer({
                 <span className="font-semibold text-[var(--color-text-primary)]">{t.treeView}</span>
                 <span className="ml-2">{t.helpViewTree}</span>
               </li>
+              <li>
+                <span className="font-semibold text-[var(--color-text-primary)]">{t.schemaView}</span>
+                <span className="ml-2">{t.helpViewSchema}</span>
+              </li>
             </ul>
           </section>
 

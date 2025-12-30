@@ -17,6 +17,7 @@ import { DiffNavigation } from './components/DiffNavigation';
 import { SideBySideView } from './components/SideBySideView';
 import { InlineView } from './components/InlineView';
 import { TreeView } from './components/TreeView';
+import { SchemaView } from './components/SchemaView';
 import { FolderUpload } from './components/FolderUpload';
 import { BatchProcessor } from './components/BatchProcessor';
 import { BatchResultList } from './components/BatchResultList';
@@ -26,6 +27,7 @@ import { EmptyStateCard } from './components/EmptyStateCard';
 import { HelpDrawer } from './components/HelpDrawer';
 import type { DiffResult, DiffType, UnifiedDiffLine } from './core/xml-diff';
 import type { ParseResult } from './core/xml-parser';
+import { buildSchemaDiff, type SchemaDiffResult } from './core/schema-diff';
 import { useDiffWorker } from './hooks/useDiffWorker';
 import type { BatchProgress, BatchResultItem, InlineLineStats, SingleDiffProgress } from './hooks/useDiffWorker';
 import { matchFiles, type FileEntry, type MatchedFilePair } from './utils/file-matcher';
@@ -89,6 +91,25 @@ const OVERVIEW_THRESHOLDS = {
   max: 0.8,
   chunkCount: 200,
 };
+
+function createEmptySchemaDiff(): SchemaDiffResult {
+  return {
+    items: [],
+    stats: {
+      added: 0,
+      removed: 0,
+      modified: 0,
+      unchanged: 0,
+      total: 0,
+      tableAdded: 0,
+      tableRemoved: 0,
+      fieldAdded: 0,
+      fieldRemoved: 0,
+      fieldModified: 0,
+      fieldUnchanged: 0,
+    },
+  };
+}
 
 function countChunksFromOps(ops?: LineDiffOp[]): number {
   if (!ops || ops.length === 0) return 0;
@@ -198,6 +219,8 @@ function AppContent() {
   const [inlineStats, setInlineStats] = useState<InlineLineStats | null>(null);
   const [inlineDiffCount, setInlineDiffCount] = useState(0);
   const [sideBySideDiffCount, setSideBySideDiffCount] = useState(0);
+  const [schemaDiff, setSchemaDiff] = useState<SchemaDiffResult>(() => createEmptySchemaDiff());
+  const [schemaDiffCount, setSchemaDiffCount] = useState(0);
   const activeViewRef = useRef<ViewMode>(activeView);
   const pendingJumpIndexRef = useRef<number | null>(null);
   
@@ -217,6 +240,7 @@ function AppContent() {
   const activeViewLabel = useMemo(() => {
     if (activeView === 'inline') return t.inline;
     if (activeView === 'tree') return t.treeView;
+    if (activeView === 'schema') return t.schemaView;
     return t.sideBySide;
   }, [activeView, t]);
   const lineCoverage = useMemo(() => {
@@ -291,6 +315,8 @@ function AppContent() {
     setInlineStats(null);
     setInlineDiffCount(0);
     setSideBySideDiffCount(0);
+    setSchemaDiff(createEmptySchemaDiff());
+    setSchemaDiffCount(0);
   }, []);
 
   const formatSize = useCallback((size: number) => {
@@ -346,12 +372,14 @@ function AppContent() {
   const totalNavigableDiffs = useMemo(() => {
     if (activeView === 'tree') {
       return treeNavCount;
+    } else if (activeView === 'schema') {
+      return schemaDiffCount;
     } else if (activeView === 'inline') {
       return inlineDiffCount;
     } else {
       return sideBySideDiffCount;
     }
-  }, [activeView, treeNavCount, inlineDiffCount, sideBySideDiffCount]);
+  }, [activeView, treeNavCount, schemaDiffCount, inlineDiffCount, sideBySideDiffCount]);
 
   useEffect(() => {
     setCurrentDiffIndex(prev => {
@@ -558,6 +586,7 @@ function AppContent() {
       setParseResultA(result.parseA);
       setParseResultB(result.parseB);
       setDiffResults(result.results);
+      setSchemaDiff(buildSchemaDiff(result.parseA.root, result.parseB.root));
       setLineDiffOps(result.lineDiff.ops);
       setInlineLineDiff(result.lineDiff.inlineLines);
       setLineLevelStats({
@@ -955,6 +984,8 @@ function AppContent() {
                 inlineStats={inlineStats}
                 treeScope={activeView === 'tree' ? treeScope : undefined}
                 treeSummary={activeView === 'tree' ? treeSummary : undefined}
+                schemaStats={activeView === 'schema' ? schemaDiff.stats : undefined}
+                schemaDiff={activeView === 'schema' ? schemaDiff : undefined}
                 compact
               />
               {showOverviewControls && (
@@ -1066,6 +1097,16 @@ function AppContent() {
                 onNavCountChange={setTreeNavCount}
                 onScopeChange={setTreeScope}
                 onSummaryChange={setTreeSummary}
+              />
+            )}
+            {activeView === 'schema' && (
+              <SchemaView
+                schemaDiff={schemaDiff}
+                activeFilters={activeFilters}
+                activeDiffIndex={currentDiffIndex}
+                onNavigate={handleNavigateToDiff}
+                onNavCountChange={setSchemaDiffCount}
+                onJumpComplete={handleJumpComplete}
               />
             )}
           </div>

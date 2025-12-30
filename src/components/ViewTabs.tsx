@@ -3,10 +3,10 @@
  * Tab navigation for different diff views
  */
 
-import { Columns, AlignLeft, GitBranch } from 'lucide-react';
+import { Columns, AlignLeft, GitBranch, Table } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-export type ViewMode = 'side-by-side' | 'inline' | 'tree';
+export type ViewMode = 'side-by-side' | 'inline' | 'tree' | 'schema';
 
 interface ViewTabsProps {
   activeView: ViewMode;
@@ -22,6 +22,7 @@ export function ViewTabs({ activeView, onViewChange, compact = false, className 
     { id: 'side-by-side', label: t.sideBySide, icon: <Columns size={16} /> },
     { id: 'inline', label: t.inline, icon: <AlignLeft size={16} /> },
     { id: 'tree', label: t.treeView, icon: <GitBranch size={16} /> },
+    { id: 'schema', label: t.schemaView, icon: <Table size={16} /> },
   ];
 
   const containerClass = compact
