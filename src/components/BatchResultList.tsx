@@ -124,6 +124,10 @@ type ViewState =
   | { type: 'list' }
   | { type: 'detail'; item: BatchResultItem; pair: MatchedFilePair };
 
+type BatchStatusFilter = 'all' | 'hasDiff' | 'noDiff' | 'failed' | 'onlyA' | 'onlyB';
+type BatchSortKey = 'name' | 'added' | 'removed' | 'modified' | 'status';
+type BatchSortOrder = 'asc' | 'desc';
+
 export function BatchResultList({ 
   matchResults, 
   diffResults, 
@@ -174,6 +178,13 @@ export function BatchResultList({
   const [detailLargeFileModeOverride, setDetailLargeFileModeOverride] = useState<boolean | null>(
     null
   );
+  const [batchSearchQuery, setBatchSearchQuery] = useState('');
+  const [batchStatusFilter, setBatchStatusFilter] = useState<BatchStatusFilter>('all');
+  const [batchDiffTypeFilter, setBatchDiffTypeFilter] = useState<Set<DiffType>>(
+    new Set(['added', 'removed', 'modified'])
+  );
+  const [batchSortKey, setBatchSortKey] = useState<BatchSortKey>('name');
+  const [batchSortOrder, setBatchSortOrder] = useState<BatchSortOrder>('asc');
 
   // Create a map of diff results by id
   const diffMap = new Map<string, BatchResultItem>();
@@ -500,6 +511,177 @@ export function BatchResultList({
     overviewMode === 'chunks' &&
     (activeCoverage > 0 || activeChunkCount > 0);
 
+  const batchRows = useMemo(() => {
+    return matchResults.map((pair) => {
+      const diffResult = diffMap.get(pair.id);
+      const isSuccess = diffResult?.success;
+
+      let summary = diffResult?.summary;
+      if (isSuccess && pair.status === 'matched' && pair.fileA && pair.fileB) {
+        const keyA = pair.fileA.name.toLowerCase();
+        const keyB = pair.fileB.name.toLowerCase();
+        const xmlA = xmlContentsA.get(keyA) || pair.fileA.content || '';
+        const xmlB = xmlContentsB.get(keyB) || pair.fileB.content || '';
+
+        if (xmlA && xmlB) {
+          const lineStats = computeLineLevelStats(xmlA, xmlB);
+          summary = {
+            added: lineStats.added,
+            removed: lineStats.removed,
+            modified: lineStats.modified,
+            unchanged: lineStats.unchanged,
+            total: lineStats.added + lineStats.removed + lineStats.modified + lineStats.unchanged,
+          };
+        }
+      }
+
+      const hasDiff = Boolean(summary && (summary.added > 0 || summary.removed > 0 || summary.modified > 0));
+      let status: BatchStatusFilter = 'all';
+      if (pair.status === 'only-in-a') {
+        status = 'onlyA';
+      } else if (pair.status === 'only-in-b') {
+        status = 'onlyB';
+      } else if (!diffResult) {
+        status = 'all';
+      } else if (!isSuccess) {
+        status = 'failed';
+      } else if (hasDiff) {
+        status = 'hasDiff';
+      } else {
+        status = 'noDiff';
+      }
+
+      return {
+        pair,
+        diffResult,
+        summary,
+        isSuccess: Boolean(isSuccess),
+        hasDiff,
+        status,
+      };
+    });
+  }, [diffMap, matchResults, xmlContentsA, xmlContentsB]);
+
+  const batchStatusCounts = useMemo(() => {
+    return batchRows.reduce(
+      (acc, row) => {
+        if (row.status === 'hasDiff') acc.hasDiff += 1;
+        if (row.status === 'noDiff') acc.noDiff += 1;
+        if (row.status === 'failed') acc.failed += 1;
+        if (row.status === 'onlyA') acc.onlyA += 1;
+        if (row.status === 'onlyB') acc.onlyB += 1;
+        return acc;
+      },
+      { hasDiff: 0, noDiff: 0, failed: 0, onlyA: 0, onlyB: 0 }
+    );
+  }, [batchRows]);
+
+  const batchDiffTypeFilterActive = batchDiffTypeFilter.size < 3;
+
+  const batchStatusOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: t.batchFilterAll, count: matchResults.length },
+      { value: 'hasDiff' as const, label: t.batchFilterHasDiff, count: batchStatusCounts.hasDiff },
+      { value: 'noDiff' as const, label: t.batchFilterNoDiff, count: batchStatusCounts.noDiff },
+      { value: 'failed' as const, label: t.batchFilterFailed, count: batchStatusCounts.failed },
+      { value: 'onlyA' as const, label: t.batchFilterOnlyA, count: batchStatusCounts.onlyA },
+      { value: 'onlyB' as const, label: t.batchFilterOnlyB, count: batchStatusCounts.onlyB },
+    ],
+    [batchStatusCounts, matchResults.length, t]
+  );
+
+  const batchSortOptions = useMemo(
+    () => [
+      { value: 'name' as const, label: t.batchSortName },
+      { value: 'added' as const, label: t.batchSortAdded },
+      { value: 'removed' as const, label: t.batchSortRemoved },
+      { value: 'modified' as const, label: t.batchSortModified },
+      { value: 'status' as const, label: t.batchSortStatus },
+    ],
+    [t]
+  );
+
+  const filteredBatchRows = useMemo(() => {
+    const query = batchSearchQuery.trim().toLowerCase();
+    const selectedTypes = batchDiffTypeFilter;
+    const filterByDiffType = batchDiffTypeFilterActive;
+
+    return batchRows.filter((row) => {
+      if (query && !row.pair.name.toLowerCase().includes(query)) {
+        return false;
+      }
+      if (batchStatusFilter !== 'all' && row.status !== batchStatusFilter) {
+        return false;
+      }
+      if (!filterByDiffType) {
+        return true;
+      }
+      if (!row.summary) {
+        return batchStatusFilter !== 'all';
+      }
+      return (
+        (selectedTypes.has('added') && row.summary.added > 0) ||
+        (selectedTypes.has('removed') && row.summary.removed > 0) ||
+        (selectedTypes.has('modified') && row.summary.modified > 0)
+      );
+    });
+  }, [batchDiffTypeFilter, batchDiffTypeFilterActive, batchRows, batchSearchQuery, batchStatusFilter]);
+
+  const sortedBatchRows = useMemo(() => {
+    const sorted = [...filteredBatchRows];
+    const direction = batchSortOrder === 'asc' ? 1 : -1;
+    const statusRank: Record<BatchStatusFilter, number> = {
+      all: 99,
+      failed: 0,
+      onlyA: 1,
+      onlyB: 2,
+      hasDiff: 3,
+      noDiff: 4,
+    };
+
+    sorted.sort((a, b) => {
+      if (batchSortKey === 'name') {
+        return a.pair.name.localeCompare(b.pair.name) * direction;
+      }
+      if (batchSortKey === 'status') {
+        return (statusRank[a.status] - statusRank[b.status]) * direction;
+      }
+      const aSummary = a.summary;
+      const bSummary = b.summary;
+      const getValue = (summary?: { added: number; removed: number; modified: number }) => {
+        if (!summary) return 0;
+        if (batchSortKey === 'added') return summary.added;
+        if (batchSortKey === 'removed') return summary.removed;
+        return summary.modified;
+      };
+      return (getValue(aSummary) - getValue(bSummary)) * direction;
+    });
+    return sorted;
+  }, [batchSortKey, batchSortOrder, filteredBatchRows]);
+
+  const handleBatchDiffTypeToggle = useCallback((type: DiffType) => {
+    setBatchDiffTypeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+        if (next.size === 0) {
+          return prev;
+        }
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleBatchResetFilters = useCallback(() => {
+    setBatchSearchQuery('');
+    setBatchStatusFilter('all');
+    setBatchDiffTypeFilter(new Set(['added', 'removed', 'modified']));
+    setBatchSortKey('name');
+    setBatchSortOrder('asc');
+  }, []);
+
   // Detail view
   if (viewState.type === 'detail') {
     return (
@@ -795,6 +977,100 @@ export function BatchResultList({
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-col gap-3 p-4 bg-[var(--color-bg-secondary)] rounded-lg border border-[var(--color-border)]">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={batchSearchQuery}
+            onChange={(event) => setBatchSearchQuery(event.target.value)}
+            placeholder={t.batchSearchPlaceholder}
+            className="h-9 w-full max-w-xs rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          />
+          <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+            <span className="text-[10px] font-semibold uppercase tracking-wide">
+              {t.batchSortLabel}
+            </span>
+            <select
+              value={batchSortKey}
+              onChange={(event) => setBatchSortKey(event.target.value as BatchSortKey)}
+              className="h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            >
+              {batchSortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setBatchSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+              className="h-8 rounded-md border border-[var(--color-border)] px-2 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            >
+              {batchSortOrder === 'asc' ? t.batchSortAsc : t.batchSortDesc}
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t.batchFilterStatusLabel}
+          </span>
+          <div className="flex flex-wrap items-center gap-1">
+            {batchStatusOptions.map((option) => {
+              const isActive = batchStatusFilter === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setBatchStatusFilter(option.value)}
+                  className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    isActive
+                      ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+                      : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
+                  }`}
+                >
+                  <span>{option.label}</span>
+                  <span className="ml-1 text-[9px] text-[var(--color-text-muted)]">
+                    {option.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t.batchFilterDiffLabel}
+          </span>
+          <div className="flex flex-wrap items-center gap-1">
+            {(['added', 'removed', 'modified'] as DiffType[]).map((type) => {
+              const isActive = batchDiffTypeFilter.has(type);
+              const label =
+                type === 'added' ? t.added : type === 'removed' ? t.removed : t.modified;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => handleBatchDiffTypeToggle(type)}
+                  className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    isActive
+                      ? 'border-[var(--color-accent)]/50 bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+                      : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={handleBatchResetFilters}
+            className="ml-auto rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+          >
+            {t.resetFilters}
+          </button>
+        </div>
+      </div>
+
       {/* Results list */}
       <div className="border border-[var(--color-border)] rounded-xl overflow-hidden">
         <table className="w-full">
@@ -813,39 +1089,28 @@ export function BatchResultList({
                 {t.modified}
               </th>
               <th className="px-4 py-3 text-center text-sm font-medium text-[var(--color-text-secondary)] w-28">
-                Status
+                {t.batchStatusLabel}
               </th>
               <th className="px-4 py-3 text-right text-sm font-medium text-[var(--color-text-secondary)] w-24">
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
-            {matchResults.map((pair) => {
-              const diffResult = diffMap.get(pair.id);
-              const isSuccess = diffResult?.success;
-              
-              // Calculate line-level stats for matched files (consistent with detail view)
-              let summary = diffResult?.summary;
-              if (isSuccess && pair.status === 'matched' && pair.fileA && pair.fileB) {
-                const keyA = pair.fileA.name.toLowerCase();
-                const keyB = pair.fileB.name.toLowerCase();
-                const xmlA = xmlContentsA.get(keyA) || pair.fileA.content || '';
-                const xmlB = xmlContentsB.get(keyB) || pair.fileB.content || '';
-                
-                if (xmlA && xmlB) {
-                  const lineStats = computeLineLevelStats(xmlA, xmlB);
-                  summary = {
-                    added: lineStats.added,
-                    removed: lineStats.removed,
-                    modified: lineStats.modified,
-                    unchanged: lineStats.unchanged,
-                    total: lineStats.added + lineStats.removed + lineStats.modified + lineStats.unchanged,
-                  };
-                }
-              }
-              
-              const hasDiff = summary && (summary.added > 0 || summary.removed > 0 || summary.modified > 0);
-              
+            {sortedBatchRows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-6 text-center text-sm text-[var(--color-text-muted)]"
+                >
+                  {t.batchNoResults}
+                </td>
+              </tr>
+            )}
+            {sortedBatchRows.map((row) => {
+              const { pair, diffResult, summary, isSuccess, hasDiff } = row;
+              const showAdded = batchDiffTypeFilter.has('added');
+              const showRemoved = batchDiffTypeFilter.has('removed');
+              const showModified = batchDiffTypeFilter.has('modified');
               return (
                 <tr 
                   key={pair.id}
@@ -869,23 +1134,35 @@ export function BatchResultList({
                   </td>
                   <td className="px-4 py-3 text-center">
                     {isSuccess && summary ? (
-                      <span className={summary.added > 0 ? 'text-green-400 font-medium' : 'text-[var(--color-text-tertiary)]'}>
-                        {summary.added}
-                      </span>
+                      showAdded ? (
+                        <span className={summary.added > 0 ? 'text-green-400 font-medium' : 'text-[var(--color-text-tertiary)]'}>
+                          {summary.added}
+                        </span>
+                      ) : (
+                        <span className="text-[var(--color-text-tertiary)]">-</span>
+                      )
                     ) : '-'}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {isSuccess && summary ? (
-                      <span className={summary.removed > 0 ? 'text-red-400 font-medium' : 'text-[var(--color-text-tertiary)]'}>
-                        {summary.removed}
-                      </span>
+                      showRemoved ? (
+                        <span className={summary.removed > 0 ? 'text-red-400 font-medium' : 'text-[var(--color-text-tertiary)]'}>
+                          {summary.removed}
+                        </span>
+                      ) : (
+                        <span className="text-[var(--color-text-tertiary)]">-</span>
+                      )
                     ) : '-'}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {isSuccess && summary ? (
-                      <span className={summary.modified > 0 ? 'text-yellow-400 font-medium' : 'text-[var(--color-text-tertiary)]'}>
-                        {summary.modified}
-                      </span>
+                      showModified ? (
+                        <span className={summary.modified > 0 ? 'text-yellow-400 font-medium' : 'text-[var(--color-text-tertiary)]'}>
+                          {summary.modified}
+                        </span>
+                      ) : (
+                        <span className="text-[var(--color-text-tertiary)]">-</span>
+                      )
                     ) : '-'}
                   </td>
                   <td className="px-4 py-3 text-center">

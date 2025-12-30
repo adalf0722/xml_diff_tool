@@ -231,6 +231,25 @@ export interface Translations {
   viewDetails: string;
   backToList: string;
   backToBatch: string;
+  batchSearchPlaceholder: string;
+  batchSortLabel: string;
+  batchSortAsc: string;
+  batchSortDesc: string;
+  batchSortName: string;
+  batchSortAdded: string;
+  batchSortRemoved: string;
+  batchSortModified: string;
+  batchSortStatus: string;
+  batchFilterStatusLabel: string;
+  batchFilterDiffLabel: string;
+  batchFilterAll: string;
+  batchFilterHasDiff: string;
+  batchFilterNoDiff: string;
+  batchFilterFailed: string;
+  batchFilterOnlyA: string;
+  batchFilterOnlyB: string;
+  batchStatusLabel: string;
+  batchNoResults: string;
   exportAllReports: string;
   cancelBatch: string;
   cancel: string;
@@ -500,6 +519,25 @@ export const translations: Record<Language, Translations> = {
     viewDetails: 'View Details',
     backToList: 'Back to List',
     backToBatch: 'Back to Batch Compare',
+    batchSearchPlaceholder: 'Search files...',
+    batchSortLabel: 'Sort',
+    batchSortAsc: 'Asc',
+    batchSortDesc: 'Desc',
+    batchSortName: 'Name',
+    batchSortAdded: 'Added',
+    batchSortRemoved: 'Removed',
+    batchSortModified: 'Modified',
+    batchSortStatus: 'Status',
+    batchFilterStatusLabel: 'Status filter',
+    batchFilterDiffLabel: 'Diff filter',
+    batchFilterAll: 'All',
+    batchFilterHasDiff: 'Has diff',
+    batchFilterNoDiff: 'No diff',
+    batchFilterFailed: 'Failed',
+    batchFilterOnlyA: 'Only in A',
+    batchFilterOnlyB: 'Only in B',
+    batchStatusLabel: 'Status',
+    batchNoResults: 'No matching results',
     exportAllReports: 'Export All Reports',
     cancelBatch: 'Cancel',
     cancel: 'Cancel',
@@ -768,6 +806,25 @@ export const translations: Record<Language, Translations> = {
     viewDetails: '查看詳情',
     backToList: '返回列表',
     backToBatch: '返回批量比較',
+    batchSearchPlaceholder: '搜尋檔案...',
+    batchSortLabel: '排序',
+    batchSortAsc: '升冪',
+    batchSortDesc: '降冪',
+    batchSortName: '檔名',
+    batchSortAdded: '新增',
+    batchSortRemoved: '刪除',
+    batchSortModified: '修改',
+    batchSortStatus: '狀態',
+    batchFilterStatusLabel: '狀態篩選',
+    batchFilterDiffLabel: '差異篩選',
+    batchFilterAll: '全部',
+    batchFilterHasDiff: '有差異',
+    batchFilterNoDiff: '無差異',
+    batchFilterFailed: '失敗',
+    batchFilterOnlyA: '僅在 A',
+    batchFilterOnlyB: '僅在 B',
+    batchStatusLabel: '狀態',
+    batchNoResults: '沒有符合的結果',
     exportAllReports: '匯出所有報告',
     cancelBatch: '取消',
     cancel: '取消',
@@ -1036,6 +1093,25 @@ export const translations: Record<Language, Translations> = {
     viewDetails: '查看详情',
     backToList: '返回列表',
     backToBatch: '返回批量比较',
+    batchSearchPlaceholder: '搜索文件...',
+    batchSortLabel: '排序',
+    batchSortAsc: '升序',
+    batchSortDesc: '降序',
+    batchSortName: '文件名',
+    batchSortAdded: '新增',
+    batchSortRemoved: '删除',
+    batchSortModified: '修改',
+    batchSortStatus: '状态',
+    batchFilterStatusLabel: '状态筛选',
+    batchFilterDiffLabel: '差异筛选',
+    batchFilterAll: '全部',
+    batchFilterHasDiff: '有差异',
+    batchFilterNoDiff: '无差异',
+    batchFilterFailed: '失败',
+    batchFilterOnlyA: '仅在 A',
+    batchFilterOnlyB: '仅在 B',
+    batchStatusLabel: '状态',
+    batchNoResults: '没有匹配的结果',
     exportAllReports: '导出所有报告',
     cancelBatch: '取消',
     cancel: '取消',
