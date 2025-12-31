@@ -1,8 +1,8 @@
-# XML Diff Tool
+﻿# XML Diff Tool
 
-[English](README.md) | **繁體中文** | [简体中文](README.zh-CN.md)
+[English](README.md) | **繁體中文** | [簡體中文](README.zh-CN.md)
 
-這是一個純前端的 XML 差異比對工具，可視覺化呈現兩份 XML 文件之間的差異，所有處理都在瀏覽器本機完成。
+這是一個純前端的 XML 差異比對工具，可視覺化呈現兩份 XML 文件之間的差異。所有處理都在瀏覽器本機完成。
 
 <div style="display: flex; gap: 12px; align-items: center;">
   <img src="public/side.webp" alt="Side by Side view" style="width: 32%; border-radius: 8px;" />
@@ -12,23 +12,24 @@
 
 ## 特色
 
-- 單檔比對與批次比對模式
-- 三種視圖：並排、行內（Unified Diff）、樹狀
+- 單檔與批量比較模式
+- 四種檢視：並排、內聯（Unified Diff）、樹狀、Schema
+- Schema 檢視：表/欄位差異與模板（struct/entry、XSD、table/column），支援自訂模板
 - 大檔模式
-  - 單側大檔自動進入預覽
-  - 可切換為完整渲染
-  - 降低渲染與語法高亮成本
-  - 行級差異於 Web Worker 計算，避免卡頓或記憶體壓力
+  - 單側大檔自動預覽
+  - 可切換完整渲染
+  - 降低渲染與語法高亮以提升效能
+  - 行級差異在 Web Worker 計算，避免卡頓
 - 差異篩選、摘要與導覽
-- 拖放上傳、交換內容、XML 格式化
-- 模式對應下載報告（HTML/Text，並排／內聯／樹狀）
-- 覆蓋率導覽模式與段落清單導覽
-- 多主題與多語系介面
+- 拖放上傳、交換、XML 格式化
+- 模式對應報告（HTML/Text，並排/內聯/樹狀/Schema）
+- 覆蓋率導覽模式與段落清單
+- 主題與多語系介面
 
 ## 大檔提示
 
-- 大檔會在該側自動進入預覽模式。
-- 可點「展開完整內容」查看完整內容。
+- 大檔會在該側預覽模式顯示。
+- 可點「顯示完整內容」展開完整內容。
 
 ## 技術棧
 
@@ -53,12 +54,12 @@ npm run build
 ## 部署（GitHub Pages）
 
 - GitHub Actions 會建置並部署 `dist` 到 Pages。
-- 請在 repo 設定中將 Pages Source 設為「GitHub Actions」。
+- 在 repo 設定中將 Pages Source 設為「GitHub Actions」。
 - 網址：https://adalf0722.github.io/xml_diff_tool/
 
 ## 隱私
 
-所有 XML 處理都在本機瀏覽器完成，不會上傳任何資料到伺服器。
+所有 XML 處理皆在瀏覽器本機完成，不會上傳任何資料到伺服器。
 
 ## License
 

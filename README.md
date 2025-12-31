@@ -13,7 +13,8 @@ A pure frontend XML comparison tool that visually presents differences between t
 ## Features
 
 - Single File and Batch Compare modes
-- Three view modes: Side by Side, Inline (Unified Diff), and Tree View
+- Four view modes: Side by Side, Inline (Unified Diff), Tree View, and Schema
+- Schema view with table/field diff, presets (Struct/Entry, XSD, Table/Column), and custom templates
 - Large file mode
   - Per-side preview for large inputs
   - Optional full rendering toggle
@@ -21,7 +22,7 @@ A pure frontend XML comparison tool that visually presents differences between t
   - Line diff computed in a Web Worker with safe fallback for huge inputs
 - Diff filters, summary, and navigation
 - Drag and drop upload, swap, and XML formatting
-- Mode-specific diff reports (HTML/Text) for Side by Side, Inline, and Tree
+- Mode-specific diff reports (HTML/Text) for Side by Side, Inline, Tree, and Schema
 - Coverage-based overview modes with chunk list navigation
 - Themes and multi-language UI
 

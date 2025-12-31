@@ -53,6 +53,13 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
     setIsStyleMenuOpen(false);
   };
 
+  const githubReadmeUrl =
+    language === 'zh-TW'
+      ? 'https://github.com/adalf0722/xml_diff_tool/blob/main/README.zh-TW.md'
+      : language === 'zh-CN'
+        ? 'https://github.com/adalf0722/xml_diff_tool/blob/main/README.zh-CN.md'
+        : 'https://github.com/adalf0722/xml_diff_tool/blob/main/README.md';
+
   // Get localized style name
   const getStyleName = (styleKey: ThemeStyle): string => {
     const styleNames: Record<ThemeStyle, keyof typeof t> = {
@@ -128,7 +135,7 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
         {/* Settings Group - Preferences */}
         <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)]/60 rounded-lg px-1 py-0.5 border border-[var(--color-border)]/40">
           <a
-            href="https://github.com/adalf0722/xml_diff_tool"
+            href={githubReadmeUrl}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
