@@ -18,6 +18,8 @@ interface DiffOverviewBarProps {
   className?: string;
 }
 
+const DENSITY_BINS = 72;
+
 export function DiffOverviewBar({
   totalLines,
   markers,
@@ -93,6 +95,39 @@ export function DiffOverviewBar({
     return Array.from(used.values());
   }, [markers, totalLines]);
 
+  const densityBands = useMemo(() => {
+    if (totalLines <= 0 || markers.length === 0) return [];
+    const denominator = Math.max(totalLines - 1, 1);
+    const counts = new Array<number>(DENSITY_BINS).fill(0);
+    markers.forEach(marker => {
+      const ratio = marker.lineIndex / denominator;
+      const index = Math.min(DENSITY_BINS - 1, Math.max(0, Math.floor(ratio * DENSITY_BINS)));
+      counts[index] += 1;
+    });
+    const max = Math.max(...counts);
+    if (max <= 0) return [];
+    const levels = counts.map(count => {
+      if (count <= 0) return -1;
+      const ratio = count / max;
+      if (ratio >= 0.66) return 2;
+      if (ratio >= 0.33) return 1;
+      return 0;
+    });
+    const segments: { start: number; end: number; level: 0 | 1 | 2 }[] = [];
+    let start = 0;
+    let current = levels[0];
+    for (let i = 1; i <= DENSITY_BINS; i += 1) {
+      if (i === DENSITY_BINS || levels[i] !== current) {
+        if (current >= 0) {
+          segments.push({ start, end: i, level: current as 0 | 1 | 2 });
+        }
+        start = i;
+        current = levels[i];
+      }
+    }
+    return segments;
+  }, [markers, totalLines]);
+
   const handleBarJump = useCallback(
     (ratio: number) => {
       if (!onSelect || sortedByLine.length === 0) return;
@@ -149,9 +184,25 @@ export function DiffOverviewBar({
         {densityText}
       </span>
       <div
-        className="relative w-[12px] rounded-full border border-[var(--color-accent)]/70 bg-[var(--color-bg-primary)]/60 cursor-pointer shadow-[0_0_0_1px_var(--color-bg-primary)] transition-colors hover:border-[var(--color-accent)]/90"
+        className="relative w-[14px] rounded-full border border-[var(--color-accent)]/70 bg-[var(--color-bg-primary)]/40 shadow-[0_0_0_1px_var(--color-bg-primary)]/80 backdrop-blur cursor-pointer transition-colors hover:border-[var(--color-accent)]/90"
         onClick={handleClick}
       >
+        {/* Density band */}
+        {densityBands.map((band, index) => {
+          const opacity = band.level === 2 ? 0.7 : band.level === 1 ? 0.45 : 0.2;
+          return (
+            <span
+              key={`density-${band.start}-${band.end}-${index}`}
+              className="absolute left-[2px] right-[2px] rounded-sm pointer-events-none"
+              style={{
+                top: `${(band.start / DENSITY_BINS) * 100}%`,
+                height: `${((band.end - band.start) / DENSITY_BINS) * 100}%`,
+                backgroundColor: 'var(--color-accent)',
+                opacity,
+              }}
+            />
+          );
+        })}
         {/* Base layer */}
         {lineMarkers.map(marker => (
           <span
@@ -161,10 +212,10 @@ export function DiffOverviewBar({
               top: `${marker.topPercent}%`,
               height: '1px',
               backgroundColor: 'var(--color-border)',
-              opacity: 0.35,
+              opacity: 0.25,
               left: marker.side === 'A' ? '1px' : undefined,
               right: marker.side === 'B' ? '1px' : undefined,
-              width: '4px',
+              width: '5px',
             }}
           />
         ))}
@@ -191,7 +242,7 @@ export function DiffOverviewBar({
                 boxShadow: isActive ? `0 0 6px ${color}` : undefined,
                 left: marker.side === 'A' ? '1px' : undefined,
                 right: marker.side === 'B' ? '1px' : undefined,
-                width: '4px',
+                width: '5px',
               }}
             />
           );
@@ -199,13 +250,14 @@ export function DiffOverviewBar({
 
         {viewport && (
           <span
-            className="absolute left-0 right-0 rounded border-[var(--color-accent)]/95 bg-[var(--color-bg-primary)]/20 pointer-events-none"
+            className="absolute left-0 right-0 rounded pointer-events-none"
             style={{
               top: `${Math.max(0, viewport.start) * 100}%`,
               height: `${Math.max(0, viewport.end - viewport.start) * 100}%`,
-              borderWidth: '2px',
             }}
           >
+            <span className="absolute inset-0 rounded border border-[var(--color-accent)]/55 bg-[var(--color-bg-primary)]/18" />
+            <span className="absolute inset-[1px] rounded border border-[var(--color-accent)]/95" />
             <span
               className="absolute left-1/2 -translate-x-1/2 -top-1 h-1.5 w-2 rounded-full bg-[var(--color-accent)]/90"
               style={{ boxShadow: '0 0 6px var(--color-accent)' }}
