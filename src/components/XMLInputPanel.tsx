@@ -3,11 +3,12 @@
  * Supports file upload, text paste, and drag & drop
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, ChangeEvent } from 'react';
-import { Upload, FileText, Trash2, Wand2, EyeOff } from 'lucide-react';
+import { Upload, FileText, Trash2, Wand2, EyeOff, Search, Pencil, Maximize2, Minimize2 } from 'lucide-react';
 import { prettyPrintXML } from '../utils/pretty-print';
 import { useLanguage } from '../contexts/LanguageContext';
+import { XMLInspectView } from './XMLInspectView';
 
 interface XMLInputPanelProps {
   label: string;
@@ -22,6 +23,9 @@ interface XMLInputPanelProps {
   previewChars?: number;
   onShowFull?: () => void;
   onShowPreview?: () => void;
+  onInspectModeChange?: (isInspect: boolean) => void;
+  isPanelFocused?: boolean;
+  onToggleFocus?: () => void;
 }
 
 export function XMLInputPanel({
@@ -37,10 +41,14 @@ export function XMLInputPanel({
   previewChars = 2000,
   onShowFull,
   onShowPreview,
+  onInspectModeChange,
+  isPanelFocused = false,
+  onToggleFocus,
 }: XMLInputPanelProps) {
   const { t } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [panelMode, setPanelMode] = useState<'edit' | 'inspect'>('edit');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -59,6 +67,7 @@ export function XMLInputPanel({
     return index < value.length ? `${preview}\n...` : preview;
   }, [previewChars, previewLines, value]);
 
+  const isInspectMode = panelMode === 'inspect';
   const showOverlay = !value && !isDragging && !isPreview && !isFocused;
   const textareaPlaceholder = showOverlay ? '' : placeholder;
 
@@ -144,6 +153,20 @@ export function XMLInputPanel({
     fileInputRef.current?.click();
   }, []);
 
+  const handleToggleInspect = useCallback(() => {
+    setPanelMode(prev => {
+      const next = prev === 'inspect' ? 'edit' : 'inspect';
+      onInspectModeChange?.(next === 'inspect');
+      return next;
+    });
+  }, [onInspectModeChange]);
+
+  useEffect(() => {
+    return () => {
+      onInspectModeChange?.(false);
+    };
+  }, [onInspectModeChange]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -153,7 +176,7 @@ export function XMLInputPanel({
           {label}
         </h3>
         <div className="flex items-center gap-2">
-          {isLarge && !isPreview && onShowPreview && (
+          {isLarge && !isPreview && onShowPreview && !isInspectMode && (
             <button
               onClick={onShowPreview}
               className="p-1.5 rounded-md hover:bg-[var(--color-bg-tertiary)] transition-colors"
@@ -162,6 +185,38 @@ export function XMLInputPanel({
               <EyeOff size={16} className="text-[var(--color-text-secondary)]" />
             </button>
           )}
+          {onToggleFocus && (
+            <button
+              onClick={onToggleFocus}
+              className={`p-1.5 rounded-md transition-colors ${
+                isPanelFocused
+                  ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+                  : 'hover:bg-[var(--color-bg-tertiary)]'
+              }`}
+              title={isPanelFocused ? t.restorePanel : t.expandPanel}
+            >
+              {isPanelFocused ? (
+                <Minimize2 size={16} className="text-[var(--color-accent)]" />
+              ) : (
+                <Maximize2 size={16} className="text-[var(--color-text-secondary)]" />
+              )}
+            </button>
+          )}
+          <button
+            onClick={handleToggleInspect}
+            className={`p-1.5 rounded-md transition-colors ${
+              isInspectMode
+                ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+                : 'hover:bg-[var(--color-bg-tertiary)]'
+            }`}
+            title={isInspectMode ? t.editMode : t.inspectMode}
+          >
+            {isInspectMode ? (
+              <Pencil size={16} className="text-[var(--color-accent)]" />
+            ) : (
+              <Search size={16} className="text-[var(--color-text-secondary)]" />
+            )}
+          </button>
           <button
             onClick={handleFormat}
             disabled={!value.trim()}
@@ -200,7 +255,9 @@ export function XMLInputPanel({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {isPreview ? (
+        {isInspectMode ? (
+          <XMLInspectView value={value} />
+        ) : isPreview ? (
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-muted)]">
               <span>

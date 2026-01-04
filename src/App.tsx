@@ -222,6 +222,9 @@ function AppContent() {
   // View state
   const [activeView, setActiveView] = useState<ViewMode>('side-by-side');
   const [showInputPanel, setShowInputPanel] = useState(true);
+  const [inputFocus, setInputFocus] = useState<'none' | 'A' | 'B'>('none');
+  const [inspectModeA, setInspectModeA] = useState(false);
+  const [inspectModeB, setInspectModeB] = useState(false);
   const inputPanelUserToggledRef = useRef(false);
   const inputPanelAutoCollapsedRef = useRef(false);
   const inputPanelEditedARef = useRef(false);
@@ -316,6 +319,16 @@ function AppContent() {
     singleFileState === 'processing' && singleFileProgress?.stage !== 'done';
   const isEmptyInputs = !xmlA.trim() && !xmlB.trim();
   const showEmptyState = appMode === 'single' && isEmptyInputs && !showSingleFileProgress;
+  const isInputFocused = inputFocus !== 'none';
+  const isInspectModeActive = inspectModeA || inspectModeB;
+  const inputPanelHeightClass = isInputFocused
+    ? 'h-[70vh] max-h-[720px] min-h-[420px]'
+    : isInspectModeActive
+      ? 'h-[360px] md:h-[520px]'
+      : 'h-[280px]';
+  const showInputA = inputFocus !== 'B';
+  const showInputB = inputFocus !== 'A';
+  const showSwapButton = showInputA && showInputB;
   const maxInputSize = Math.max(xmlA.length, xmlB.length);
   const isLargeFile = maxInputSize >= LARGE_FILE_CHAR_THRESHOLD;
   const isLargeInputA = xmlA.length >= LARGE_FILE_CHAR_THRESHOLD;
@@ -536,7 +549,21 @@ function AppContent() {
   // Toggle input panel
   const handleToggleInput = useCallback(() => {
     inputPanelUserToggledRef.current = true;
-    setShowInputPanel(prev => !prev);
+    setShowInputPanel(prev => {
+      const next = !prev;
+      if (!next) {
+        setInputFocus('none');
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleFocusA = useCallback(() => {
+    setInputFocus(prev => (prev === 'A' ? 'none' : 'A'));
+  }, []);
+
+  const handleToggleFocusB = useCallback(() => {
+    setInputFocus(prev => (prev === 'B' ? 'none' : 'B'));
   }, []);
 
   // Swap XML content
@@ -933,49 +960,61 @@ function AppContent() {
         {/* Input panels (collapsible) */}
         {showInputPanel && (
           <div className="flex-shrink-0 border-b border-[var(--color-border)]">
-            <div className="flex h-[280px]">
+            <div className={`flex ${inputPanelHeightClass} transition-[height] duration-300`}>
               {/* XML A Input */}
-              <div className="flex-1 border-r border-[var(--color-border)]">
-                <XMLInputPanel
-                  label={t.xmlALabel}
-                  value={xmlA}
-                  onChange={handleXmlAChange}
-                  onUpload={handleXmlAUpload}
-                  error={parseResultA.error}
-                  placeholder={t.xmlAPlaceholder}
-                  isLarge={isLargeInputA}
-                  isPreview={!showFullInputA}
-                  onShowFull={() => setShowFullInputAOverride(true)}
-                  onShowPreview={() => setShowFullInputAOverride(false)}
-                />
-              </div>
+              {showInputA && (
+                <div className={`flex-1 ${showInputB ? 'border-r border-[var(--color-border)]' : ''}`}>
+                  <XMLInputPanel
+                    label={t.xmlALabel}
+                    value={xmlA}
+                    onChange={handleXmlAChange}
+                    onUpload={handleXmlAUpload}
+                    error={parseResultA.error}
+                    placeholder={t.xmlAPlaceholder}
+                    isLarge={isLargeInputA}
+                    isPreview={!showFullInputA}
+                    onShowFull={() => setShowFullInputAOverride(true)}
+                    onShowPreview={() => setShowFullInputAOverride(false)}
+                    onInspectModeChange={setInspectModeA}
+                    isPanelFocused={inputFocus === 'A'}
+                    onToggleFocus={handleToggleFocusA}
+                  />
+                </div>
+              )}
 
               {/* Swap button */}
-              <div className="flex flex-col items-center justify-center px-2 bg-[var(--color-bg-secondary)]">
-                <button
-                  onClick={handleSwap}
-                  className="p-2 rounded-full hover:bg-[var(--color-bg-tertiary)] transition-colors"
-                  title={t.swap}
-                >
-                  <ArrowRightLeft size={20} className="text-[var(--color-accent)]" />
-                </button>
-              </div>
+              {showSwapButton && (
+                <div className="flex flex-col items-center justify-center px-2 bg-[var(--color-bg-secondary)]">
+                  <button
+                    onClick={handleSwap}
+                    className="p-2 rounded-full hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                    title={t.swap}
+                  >
+                    <ArrowRightLeft size={20} className="text-[var(--color-accent)]" />
+                  </button>
+                </div>
+              )}
 
               {/* XML B Input */}
-              <div className="flex-1">
-                <XMLInputPanel
-                  label={t.xmlBLabel}
-                  value={xmlB}
-                  onChange={handleXmlBChange}
-                  onUpload={handleXmlBUpload}
-                  error={parseResultB.error}
-                  placeholder={t.xmlBPlaceholder}
-                  isLarge={isLargeInputB}
-                  isPreview={!showFullInputB}
-                  onShowFull={() => setShowFullInputBOverride(true)}
-                  onShowPreview={() => setShowFullInputBOverride(false)}
-                />
-              </div>
+              {showInputB && (
+                <div className="flex-1">
+                  <XMLInputPanel
+                    label={t.xmlBLabel}
+                    value={xmlB}
+                    onChange={handleXmlBChange}
+                    onUpload={handleXmlBUpload}
+                    error={parseResultB.error}
+                    placeholder={t.xmlBPlaceholder}
+                    isLarge={isLargeInputB}
+                    isPreview={!showFullInputB}
+                    onShowFull={() => setShowFullInputBOverride(true)}
+                    onShowPreview={() => setShowFullInputBOverride(false)}
+                    onInspectModeChange={setInspectModeB}
+                    isPanelFocused={inputFocus === 'B'}
+                    onToggleFocus={handleToggleFocusB}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}

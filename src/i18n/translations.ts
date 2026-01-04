@@ -34,6 +34,12 @@ export interface Translations {
   previewModeDesc: string;
   showPreview: string;
   showFullContent: string;
+  inspectMode: string;
+  editMode: string;
+  expandPanel: string;
+  restorePanel: string;
+  inspectTreeTitle: string;
+  inspectTreeEmpty: string;
 
   // View Tabs
   sideBySide: string;
@@ -322,6 +328,12 @@ export const translations: Record<Language, Translations> = {
     previewModeDesc: 'Previewing first {lines} lines to reduce rendering cost.',
     showPreview: 'Show preview',
     showFullContent: 'Show full content',
+    inspectMode: 'Inspect mode',
+    editMode: 'Edit mode',
+    expandPanel: 'Maximize panel',
+    restorePanel: 'Restore panel',
+    inspectTreeTitle: 'Outline',
+    inspectTreeEmpty: 'No nodes to display',
 
     // View Tabs
     sideBySide: 'Side by Side',
@@ -609,6 +621,12 @@ export const translations: Record<Language, Translations> = {
     previewModeDesc: '僅顯示前 {lines} 行以降低資源耗用。',
     showPreview: '顯示預覽',
     showFullContent: '展開完整內容',
+    inspectMode: '剖析模式',
+    editMode: '編輯模式',
+    expandPanel: '放大視窗',
+    restorePanel: '還原視窗',
+    inspectTreeTitle: '樹狀導覽',
+    inspectTreeEmpty: '沒有可顯示的節點',
 
     // View Tabs
     sideBySide: '並排對比',
@@ -896,6 +914,12 @@ export const translations: Record<Language, Translations> = {
     previewModeDesc: '仅显示前 {lines} 行以降低资源占用。',
     showPreview: '显示预览',
     showFullContent: '展开完整内容',
+    inspectMode: '解析模式',
+    editMode: '编辑模式',
+    expandPanel: '放大视窗',
+    restorePanel: '还原视窗',
+    inspectTreeTitle: '树状导航',
+    inspectTreeEmpty: '没有可显示的节点',
 
     // View Tabs
     sideBySide: '并排对比',
