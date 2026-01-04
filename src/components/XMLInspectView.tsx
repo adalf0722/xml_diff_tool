@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HTMLAttributes } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Search, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 type InspectItem =
@@ -189,6 +189,17 @@ function flattenInspectTree(
   return items;
 }
 
+function buildTreeLineageMap(nodes: InspectTreeNode[]) {
+  const map = new Map<number, string[]>();
+  const walk = (node: InspectTreeNode, path: string[]) => {
+    const nextPath = [...path, node.id];
+    map.set(node.lineIndex, nextPath);
+    node.children.forEach(child => walk(child, nextPath));
+  };
+  nodes.forEach(node => walk(node, []));
+  return map;
+}
+
 function buildDisplayItems(
   lines: string[],
   foldRanges: Map<number, number>,
@@ -220,17 +231,23 @@ function buildDisplayItems(
 export function XMLInspectView({ value }: { value: string }) {
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const treeVirtuosoRef = useRef<VirtuosoHandle>(null);
   const lines = useMemo(() => (value ? value.split('\n') : ['']), [value]);
   const foldRanges = useMemo(() => buildFoldRanges(lines), [lines]);
   const foldStarts = useMemo(() => Array.from(foldRanges.keys()).sort((a, b) => a - b), [foldRanges]);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [treeCollapsed, setTreeCollapsed] = useState<Set<string>>(new Set());
   const [pendingLine, setPendingLine] = useState<number | null>(null);
+  const [pendingTreeLine, setPendingTreeLine] = useState<number | null>(null);
   const [highlightLine, setHighlightLine] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchIndex, setSearchIndex] = useState(0);
 
   useEffect(() => {
     setCollapsed(new Set());
     setTreeCollapsed(new Set());
+    setSearchQuery('');
+    setSearchIndex(0);
   }, [value]);
 
   const toggleFold = useCallback((start: number) => {
@@ -254,10 +271,23 @@ export function XMLInspectView({ value }: { value: string }) {
   }, []);
 
   const treeRoots = useMemo(() => buildInspectTree(lines), [lines]);
+  const treeLineageMap = useMemo(() => buildTreeLineageMap(treeRoots), [treeRoots]);
   const treeItems = useMemo(
     () => flattenInspectTree(treeRoots, treeCollapsed),
     [treeRoots, treeCollapsed]
   );
+  const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const searchMatches = useMemo(() => {
+    if (!normalizedSearch) return [];
+    const matches: number[] = [];
+    lines.forEach((line, index) => {
+      if (line.toLowerCase().includes(normalizedSearch)) {
+        matches.push(index);
+      }
+    });
+    return matches;
+  }, [lines, normalizedSearch]);
+  const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches]);
 
   const toggleTreeNode = useCallback((nodeId: string) => {
     setTreeCollapsed(prev => {
@@ -284,6 +314,15 @@ export function XMLInspectView({ value }: { value: string }) {
     });
     return map;
   }, [items]);
+  const treeLineIndexToItemIndex = useMemo(() => {
+    const map = new Map<number, number>();
+    treeItems.forEach((item, index) => {
+      if (!map.has(item.lineIndex)) {
+        map.set(item.lineIndex, index);
+      }
+    });
+    return map;
+  }, [treeItems]);
 
   const lineNumberWidth = useMemo(() => {
     const digits = Math.max(2, String(lines.length).length);
@@ -298,6 +337,20 @@ export function XMLInspectView({ value }: { value: string }) {
         toExpand.push(start);
       }
     });
+    const lineage = treeLineageMap.get(lineIndex);
+    if (lineage && lineage.length > 1) {
+      setTreeCollapsed(prev => {
+        const next = new Set(prev);
+        lineage.slice(0, -1).forEach(id => next.delete(id));
+        return next;
+      });
+      setPendingTreeLine(lineIndex);
+    } else {
+      const treeIndex = treeLineIndexToItemIndex.get(lineIndex);
+      if (treeIndex !== undefined) {
+        treeVirtuosoRef.current?.scrollToIndex({ index: treeIndex, align: 'center', behavior: 'smooth' });
+      }
+    }
     if (toExpand.length > 0) {
       setCollapsed(prev => {
         const next = new Set(prev);
@@ -311,7 +364,35 @@ export function XMLInspectView({ value }: { value: string }) {
     if (itemIndex === undefined) return;
     virtuosoRef.current?.scrollToIndex({ index: itemIndex, align: 'center', behavior: 'smooth' });
     setHighlightLine(lineIndex);
-  }, [collapsed, foldRanges, lineIndexToItemIndex]);
+  }, [
+    collapsed,
+    foldRanges,
+    lineIndexToItemIndex,
+    treeLineIndexToItemIndex,
+    treeLineageMap,
+  ]);
+
+  const jumpToMatch = useCallback((targetIndex: number) => {
+    if (searchMatches.length === 0) return;
+    const nextIndex = (targetIndex + searchMatches.length) % searchMatches.length;
+    setSearchIndex(nextIndex);
+    scrollToLine(searchMatches[nextIndex]);
+  }, [scrollToLine, searchMatches]);
+
+  const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      jumpToMatch(event.shiftKey ? searchIndex - 1 : searchIndex + 1);
+    }
+    if (event.key === 'Escape') {
+      setSearchQuery('');
+    }
+  }, [jumpToMatch, searchIndex]);
+
+  useEffect(() => {
+    setSearchIndex(0);
+    setHighlightLine(null);
+  }, [normalizedSearch]);
 
   useEffect(() => {
     if (pendingLine === null) return;
@@ -323,12 +404,28 @@ export function XMLInspectView({ value }: { value: string }) {
   }, [lineIndexToItemIndex, pendingLine]);
 
   useEffect(() => {
+    if (pendingTreeLine === null) return;
+    const itemIndex = treeLineIndexToItemIndex.get(pendingTreeLine);
+    if (itemIndex === undefined) return;
+    treeVirtuosoRef.current?.scrollToIndex({ index: itemIndex, align: 'center', behavior: 'smooth' });
+    setPendingTreeLine(null);
+  }, [pendingTreeLine, treeLineIndexToItemIndex]);
+
+  useEffect(() => {
     if (highlightLine === null) return;
     const timer = setTimeout(() => {
       setHighlightLine(null);
-    }, 900);
+    }, 2000);
     return () => clearTimeout(timer);
   }, [highlightLine]);
+
+  const searchCountLabel = useMemo(() => {
+    if (!normalizedSearch) return '';
+    const current = searchMatches.length === 0 ? 0 : searchIndex + 1;
+    return t.inspectSearchCount
+      .replace('{current}', current.toString())
+      .replace('{total}', searchMatches.length.toString());
+  }, [normalizedSearch, searchIndex, searchMatches.length, t.inspectSearchCount]);
 
   return (
     <div className="flex h-full flex-col">
@@ -358,12 +455,62 @@ export function XMLInspectView({ value }: { value: string }) {
           <div className="px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
             {t.inspectTreeTitle}
           </div>
+          <div className="px-3 pb-2">
+            <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2 py-1 text-xs text-[var(--color-text-secondary)]">
+              <Search size={12} className="text-[var(--color-text-muted)]" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={t.inspectSearchPlaceholder}
+                className="flex-1 bg-transparent outline-none placeholder:text-[var(--color-text-muted)]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="rounded p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                  title={t.clear}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+            {normalizedSearch && (
+              <div className="mt-2 flex items-center justify-between text-[10px] text-[var(--color-text-muted)]">
+                <span>
+                  {searchMatches.length === 0 ? t.inspectSearchNoMatch : searchCountLabel}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={searchMatches.length === 0}
+                    onClick={() => jumpToMatch(searchIndex - 1)}
+                    className="rounded px-1 py-0.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={t.inspectSearchPrev}
+                  >
+                    <ChevronUp size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={searchMatches.length === 0}
+                    onClick={() => jumpToMatch(searchIndex + 1)}
+                    className="rounded px-1 py-0.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={t.inspectSearchNext}
+                  >
+                    <ChevronDown size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           {treeItems.length === 0 ? (
             <div className="px-3 pb-3 text-xs text-[var(--color-text-muted)]">
               {t.inspectTreeEmpty}
             </div>
           ) : (
             <Virtuoso
+              ref={treeVirtuosoRef}
               totalCount={treeItems.length}
               className="h-40 md:h-full"
               style={{ height: '100%' }}
@@ -371,12 +518,25 @@ export function XMLInspectView({ value }: { value: string }) {
               itemContent={(index) => {
                 const item = treeItems[index];
                 const isCollapsed = treeCollapsed.has(item.id);
+                const isMatch = searchMatchSet.has(item.lineIndex);
+                const isActive = highlightLine === item.lineIndex;
                 return (
                   <button
                     type="button"
                     onClick={() => scrollToLine(item.lineIndex)}
-                    className="flex w-full items-center gap-2 px-3 py-1 text-left text-xs text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]"
+                    className={`relative flex w-full items-center gap-2 px-3 py-1 text-left text-xs text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] ${
+                      isActive ? 'bg-[var(--color-accent)]/12 ring-1 ring-[var(--color-accent)]/35' : ''
+                    }`}
                   >
+                    <span
+                      className={`absolute left-1 top-1 bottom-1 w-1 rounded ${
+                        isActive
+                          ? 'bg-[var(--color-accent)]'
+                          : isMatch
+                            ? 'bg-[var(--color-diff-added-border)]'
+                            : 'bg-transparent'
+                      }`}
+                    />
                     <span
                       className="flex items-center justify-center"
                       style={{ paddingLeft: item.depth * 12 }}
@@ -456,6 +616,7 @@ export function XMLInspectView({ value }: { value: string }) {
                   expandLabel={t.expandSection}
                   collapseLabel={t.collapseAll}
                   isHighlighted={highlightLine === item.lineIndex}
+                  isMatch={searchMatchSet.has(item.lineIndex)}
                 />
               );
             }}
@@ -477,6 +638,7 @@ function InspectLine({
   expandLabel,
   collapseLabel,
   isHighlighted,
+  isMatch,
 }: {
   lineNumber: number;
   content: string;
@@ -488,11 +650,14 @@ function InspectLine({
   expandLabel: string;
   collapseLabel: string;
   isHighlighted: boolean;
+  isMatch: boolean;
 }) {
   return (
     <div
-      className={`grid items-start text-[var(--color-text-primary)] ${
-        isHighlighted ? 'bg-[var(--color-accent)]/10 ring-1 ring-[var(--color-accent)]/40' : ''
+      className={`grid items-start text-[var(--color-text-primary)] transition-colors duration-300 ${
+        isMatch ? 'bg-[var(--color-accent)]/5' : ''
+      } ${
+        isHighlighted ? 'bg-[var(--color-accent)]/15 ring-2 ring-[var(--color-accent)]/60' : ''
       }`}
       style={{ gridTemplateColumns: `${toggleWidth}px ${lineNumberWidth}px 1fr` }}
     >
@@ -510,7 +675,13 @@ function InspectLine({
           <span className="block h-[14px] w-[14px]" />
         )}
       </div>
-      <span className="px-2 py-0.5 text-right text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] select-none">
+      <span
+        className={`px-2 py-0.5 text-right border-r border-[var(--color-border)] select-none transition-colors duration-300 ${
+          isHighlighted
+            ? 'bg-[var(--color-accent)]/30 text-[var(--color-text-primary)] font-semibold'
+            : 'text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)]'
+        }`}
+      >
         {lineNumber}
       </span>
       <pre className="px-3 py-0.5 whitespace-pre overflow-hidden text-[var(--color-text-primary)]">

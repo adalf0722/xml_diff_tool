@@ -40,6 +40,11 @@ export interface Translations {
   restorePanel: string;
   inspectTreeTitle: string;
   inspectTreeEmpty: string;
+  inspectSearchPlaceholder: string;
+  inspectSearchCount: string;
+  inspectSearchNoMatch: string;
+  inspectSearchPrev: string;
+  inspectSearchNext: string;
 
   // View Tabs
   sideBySide: string;
@@ -334,6 +339,11 @@ export const translations: Record<Language, Translations> = {
     restorePanel: 'Restore panel',
     inspectTreeTitle: 'Outline',
     inspectTreeEmpty: 'No nodes to display',
+    inspectSearchPlaceholder: 'Search node/attr/text...',
+    inspectSearchCount: '{current}/{total}',
+    inspectSearchNoMatch: 'No matches',
+    inspectSearchPrev: 'Previous match',
+    inspectSearchNext: 'Next match',
 
     // View Tabs
     sideBySide: 'Side by Side',
@@ -627,6 +637,11 @@ export const translations: Record<Language, Translations> = {
     restorePanel: '還原視窗',
     inspectTreeTitle: '樹狀導覽',
     inspectTreeEmpty: '沒有可顯示的節點',
+    inspectSearchPlaceholder: '搜尋節點/屬性/文字...',
+    inspectSearchCount: '{current}/{total}',
+    inspectSearchNoMatch: '沒有符合項目',
+    inspectSearchPrev: '上一筆',
+    inspectSearchNext: '下一筆',
 
     // View Tabs
     sideBySide: '並排對比',
@@ -920,6 +935,11 @@ export const translations: Record<Language, Translations> = {
     restorePanel: '还原视窗',
     inspectTreeTitle: '树状导航',
     inspectTreeEmpty: '没有可显示的节点',
+    inspectSearchPlaceholder: '搜索节点/属性/文本...',
+    inspectSearchCount: '{current}/{total}',
+    inspectSearchNoMatch: '没有匹配项',
+    inspectSearchPrev: '上一项',
+    inspectSearchNext: '下一项',
 
     // View Tabs
     sideBySide: '并排对比',
