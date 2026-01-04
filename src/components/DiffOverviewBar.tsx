@@ -189,7 +189,7 @@ export function DiffOverviewBar({
       >
         {/* Density band */}
         {densityBands.map((band, index) => {
-          const opacity = band.level === 2 ? 0.7 : band.level === 1 ? 0.45 : 0.2;
+          const opacity = band.level === 2 ? 0.85 : band.level === 1 ? 0.6 : 0.3;
           return (
             <span
               key={`density-${band.start}-${band.end}-${index}`}
@@ -257,7 +257,10 @@ export function DiffOverviewBar({
             }}
           >
             <span className="absolute inset-0 rounded border border-[var(--color-accent)]/55 bg-[var(--color-bg-primary)]/18" />
-            <span className="absolute inset-[1px] rounded border border-[var(--color-accent)]/95" />
+            <span
+              className="absolute inset-[1px] rounded border border-[var(--color-accent)]/95"
+              style={{ boxShadow: '0 0 10px var(--color-accent), 0 0 2px var(--color-accent)' }}
+            />
             <span
               className="absolute left-1/2 -translate-x-1/2 -top-1 h-1.5 w-2 rounded-full bg-[var(--color-accent)]/90"
               style={{ boxShadow: '0 0 6px var(--color-accent)' }}
