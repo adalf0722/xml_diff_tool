@@ -37,6 +37,8 @@ const OVERVIEW_THRESHOLDS = {
   max: 0.8,
   chunkCount: 200,
 };
+const OVERVIEW_MODE_STORAGE_KEY = 'xmldiff-overview-mode';
+const OVERVIEW_MODE_OPTIONS: OverviewModePreference[] = ['auto', 'minimap', 'hybrid', 'chunks'];
 const EMPTY_PARSE_RESULT: ParseResult = { success: false, root: null, error: null, rawXML: '' };
 const EMPTY_LINE_STATS: LineLevelStats = {
   added: 0,
@@ -46,6 +48,13 @@ const EMPTY_LINE_STATS: LineLevelStats = {
   total: 0,
   navigableCount: 0,
 };
+
+function normalizeOverviewModePref(value: string | null): OverviewModePreference {
+  if (value && OVERVIEW_MODE_OPTIONS.includes(value as OverviewModePreference)) {
+    return value as OverviewModePreference;
+  }
+  return 'auto';
+}
 
 function createEmptySchemaDiff(): SchemaDiffResult {
   return {
@@ -148,7 +157,10 @@ export function BatchResultList({
     new Set(['added', 'removed', 'modified'])
   );
   const [currentDiffIndex, setCurrentDiffIndex] = useState(0);
-  const [overviewModePref, setOverviewModePref] = useState<OverviewModePreference>('auto');
+  const [overviewModePref, setOverviewModePref] = useState<OverviewModePreference>(() => {
+    if (typeof window === 'undefined') return 'auto';
+    return normalizeOverviewModePref(localStorage.getItem(OVERVIEW_MODE_STORAGE_KEY));
+  });
   const [detailState, setDetailState] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
   const [detailProgress, setDetailProgress] = useState<SingleDiffProgress | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -298,6 +310,11 @@ export function BatchResultList({
     setCurrentDiffIndex(index);
   }, [totalNavigableDiffs]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(OVERVIEW_MODE_STORAGE_KEY, overviewModePref);
+  }, [overviewModePref]);
+
   const handleJumpComplete = useCallback((index: number) => {
     setCurrentDiffIndex(prev => (prev === index ? prev : index));
   }, []);
@@ -339,7 +356,6 @@ export function BatchResultList({
     setActiveView('side-by-side');
     setActiveFilters(new Set(['added', 'removed', 'modified']));
     setCurrentDiffIndex(0);
-    setOverviewModePref('auto');
     setDetailLargeFileModeOverride(null);
 
     if (!detailXmlA.trim() || !detailXmlB.trim()) {

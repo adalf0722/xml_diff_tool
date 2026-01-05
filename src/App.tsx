@@ -98,6 +98,15 @@ const OVERVIEW_THRESHOLDS = {
   max: 0.8,
   chunkCount: 200,
 };
+const OVERVIEW_MODE_STORAGE_KEY = 'xmldiff-overview-mode';
+const OVERVIEW_MODE_OPTIONS: OverviewModePreference[] = ['auto', 'minimap', 'hybrid', 'chunks'];
+
+function normalizeOverviewModePref(value: string | null): OverviewModePreference {
+  if (value && OVERVIEW_MODE_OPTIONS.includes(value as OverviewModePreference)) {
+    return value as OverviewModePreference;
+  }
+  return 'auto';
+}
 
 const SCHEMA_PRESET_STORAGE_KEY = 'xmldiff-schema-preset';
 const SCHEMA_CUSTOM_STORAGE_KEY = 'xmldiff-schema-custom';
@@ -233,7 +242,10 @@ function AppContent() {
   const [showFullInputBOverride, setShowFullInputBOverride] = useState<boolean | null>(null);
   const [largeFileModeOverride, setLargeFileModeOverride] = useState<boolean | null>(null);
   const [viewSwitching, setViewSwitching] = useState(false);
-  const [overviewModePref, setOverviewModePref] = useState<OverviewModePreference>('auto');
+  const [overviewModePref, setOverviewModePref] = useState<OverviewModePreference>(() => {
+    if (typeof window === 'undefined') return 'auto';
+    return normalizeOverviewModePref(localStorage.getItem(OVERVIEW_MODE_STORAGE_KEY));
+  });
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // Filter state - which diff types to show (unchanged is always shown, not a filter)
@@ -507,6 +519,11 @@ function AppContent() {
     localStorage.setItem(SCHEMA_CUSTOM_STORAGE_KEY, JSON.stringify(schemaCustomConfig));
   }, [schemaCustomConfig]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(OVERVIEW_MODE_STORAGE_KEY, overviewModePref);
+  }, [overviewModePref]);
+
   // Toggle a filter
   const handleFilterToggle = useCallback((type: DiffType) => {
     setActiveFilters(prev => {
@@ -605,11 +622,13 @@ function AppContent() {
   }, []);
 
   const handleXmlAUpload = useCallback(() => {
-    setOverviewModePref('auto');
+    if (typeof window === 'undefined') return;
+    setOverviewModePref(normalizeOverviewModePref(localStorage.getItem(OVERVIEW_MODE_STORAGE_KEY)));
   }, []);
 
   const handleXmlBUpload = useCallback(() => {
-    setOverviewModePref('auto');
+    if (typeof window === 'undefined') return;
+    setOverviewModePref(normalizeOverviewModePref(localStorage.getItem(OVERVIEW_MODE_STORAGE_KEY)));
   }, []);
 
   // Handle batch folder selection
