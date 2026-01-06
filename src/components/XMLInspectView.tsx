@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { HTMLAttributes } from 'react';
+import type { HTMLAttributes, MouseEvent } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { ChevronDown, ChevronRight, ChevronUp, Search, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -232,6 +232,15 @@ export function XMLInspectView({ value }: { value: string }) {
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const treeVirtuosoRef = useRef<VirtuosoHandle>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const minimapRef = useRef<HTMLDivElement>(null);
+  const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [scrollInfo, setScrollInfo] = useState({ scrollTop: 0, scrollHeight: 0, clientHeight: 0 });
+  const scrollInfoRef = useRef<{ scrollTop: number; scrollHeight: number; clientHeight: number } | null>(
+    null
+  );
+  const scrollRafRef = useRef<number | null>(null);
+  const [minimapSize, setMinimapSize] = useState({ width: 0, height: 0 });
   const lines = useMemo(() => (value ? value.split('\n') : ['']), [value]);
   const foldRanges = useMemo(() => buildFoldRanges(lines), [lines]);
   const foldStarts = useMemo(() => Array.from(foldRanges.keys()).sort((a, b) => a - b), [foldRanges]);
@@ -249,6 +258,65 @@ export function XMLInspectView({ value }: { value: string }) {
     setSearchQuery('');
     setSearchIndex(0);
   }, [value]);
+
+  const scheduleScrollInfo = useCallback((element: HTMLElement | null) => {
+    if (!element) return;
+    scrollInfoRef.current = {
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      if (scrollInfoRef.current) {
+        setScrollInfo(scrollInfoRef.current);
+      }
+    });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollerRef.current) return;
+    scheduleScrollInfo(scrollerRef.current);
+  }, [scheduleScrollInfo]);
+
+  const attachScroller = useCallback((element: HTMLElement | Window | null) => {
+    const normalized = element instanceof HTMLElement ? element : null;
+    if (scrollerRef.current === normalized) return;
+    if (scrollerRef.current) {
+      scrollerRef.current.removeEventListener('scroll', handleScroll);
+    }
+    scrollerRef.current = normalized;
+    if (normalized) {
+      normalized.addEventListener('scroll', handleScroll, { passive: true });
+      scheduleScrollInfo(normalized);
+    }
+  }, [handleScroll, scheduleScrollInfo]);
+
+  useEffect(() => {
+    return () => {
+      scrollerRef.current?.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScroll]);
+
+  useEffect(() => {
+    const element = minimapRef.current;
+    if (!element) return;
+    const updateSize = () => {
+      const rect = element.getBoundingClientRect();
+      const nextWidth = Math.max(0, Math.round(rect.width));
+      const nextHeight = Math.max(0, Math.round(rect.height));
+      setMinimapSize(prev => {
+        if (prev.width === nextWidth && prev.height === nextHeight) return prev;
+        return { width: nextWidth, height: nextHeight };
+      });
+    };
+    updateSize();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => updateSize());
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const toggleFold = useCallback((start: number) => {
     setCollapsed(prev => {
@@ -276,6 +344,32 @@ export function XMLInspectView({ value }: { value: string }) {
     () => flattenInspectTree(treeRoots, treeCollapsed),
     [treeRoots, treeCollapsed]
   );
+  const segmentNodes = useMemo(() => {
+    if (treeRoots.length === 0) return [] as Array<{ node: InspectTreeNode; depth: number }>;
+    if (treeRoots.length > 1) {
+      return treeRoots.map(node => ({ node, depth: 0 }));
+    }
+    const root = treeRoots[0];
+    if (root.children.length > 0) {
+      return root.children.map(node => ({ node, depth: 1 }));
+    }
+    return [{ node: root, depth: 0 }];
+  }, [treeRoots]);
+  const segmentRanges = useMemo(() => {
+    if (segmentNodes.length === 0) return [] as Array<{ start: number; end: number; depth: number }>;
+    const sorted = [...segmentNodes].sort((a, b) => a.node.lineIndex - b.node.lineIndex);
+    return sorted.map((entry, index) => {
+      const start = entry.node.lineIndex;
+      const nextStart = sorted[index + 1]?.node.lineIndex;
+      let end = foldRanges.get(start);
+      if (end === undefined) {
+        end = nextStart !== undefined ? Math.max(start, nextStart - 1) : start;
+      } else if (nextStart !== undefined && nextStart <= end) {
+        end = Math.max(start, nextStart - 1);
+      }
+      return { start, end: Math.max(start, end), depth: entry.depth };
+    });
+  }, [foldRanges, segmentNodes]);
   const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
   const searchMatches = useMemo(() => {
     if (!normalizedSearch) return [];
@@ -323,12 +417,25 @@ export function XMLInspectView({ value }: { value: string }) {
     });
     return map;
   }, [treeItems]);
+  const itemIndexToLineIndex = useMemo(() => {
+    return items.map(item => (item.type === 'line' ? item.lineIndex : item.foldStart));
+  }, [items]);
 
   const lineNumberWidth = useMemo(() => {
     const digits = Math.max(2, String(lines.length).length);
     return digits * 8 + 18;
   }, [lines.length]);
   const toggleWidth = 22;
+  const overviewViewport = useMemo(() => {
+    if (!scrollInfo.scrollHeight || !scrollInfo.clientHeight) return null;
+    const start = scrollInfo.scrollTop / scrollInfo.scrollHeight;
+    const size = scrollInfo.clientHeight / scrollInfo.scrollHeight;
+    return {
+      start: Math.max(0, Math.min(1, start)),
+      end: Math.max(0, Math.min(1, start + size)),
+    };
+  }, [scrollInfo]);
+  const minimapWidth = useMemo(() => (lines.length <= 400 ? 12 : 18), [lines.length]);
 
   const scrollToLine = useCallback((lineIndex: number) => {
     const toExpand: number[] = [];
@@ -371,6 +478,18 @@ export function XMLInspectView({ value }: { value: string }) {
     treeLineIndexToItemIndex,
     treeLineageMap,
   ]);
+
+  const handleMinimapClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const container = minimapRef.current;
+    if (!container || items.length === 0) return;
+    const rect = container.getBoundingClientRect();
+    if (!rect.height) return;
+    const offsetY = event.clientY - rect.top;
+    const ratio = Math.min(1, Math.max(0, offsetY / rect.height));
+    const targetIndex = Math.round(ratio * Math.max(0, items.length - 1));
+    const lineIndex = itemIndexToLineIndex[targetIndex] ?? 0;
+    scrollToLine(lineIndex);
+  }, [itemIndexToLineIndex, items.length, scrollToLine]);
 
   const jumpToMatch = useCallback((targetIndex: number) => {
     if (searchMatches.length === 0) return;
@@ -418,6 +537,99 @@ export function XMLInspectView({ value }: { value: string }) {
     }, 2000);
     return () => clearTimeout(timer);
   }, [highlightLine]);
+
+  useEffect(() => {
+    const canvas = minimapCanvasRef.current;
+    if (!canvas) return;
+    const { width, height } = minimapSize;
+    if (width <= 0 || height <= 0) return;
+    const totalItems = items.length;
+    if (totalItems === 0) return;
+    const ratio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    canvas.width = Math.max(1, Math.floor(width * ratio));
+    canvas.height = Math.max(1, Math.floor(height * ratio));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const accent = typeof window !== 'undefined'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim()
+      : '';
+    const muted = typeof window !== 'undefined'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--color-text-muted').trim()
+      : '';
+    const mid = typeof window !== 'undefined'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--color-diff-modified-border').trim()
+      : '';
+    const accentColor = accent || '#8B5CF6';
+    const mutedColor = muted || '#9CA3AF';
+    const midColor = mid || '#F59E0B';
+
+    const totalLines = Math.max(1, lines.length);
+    const useSegmentBlocks = totalLines > 400;
+
+    if (!useSegmentBlocks) {
+      const rowCount = Math.max(1, Math.floor(height));
+      const rowDepths = new Array(rowCount).fill(0);
+      const rowHits = new Array(rowCount).fill(0);
+      const getLineDepth = (content: string, lineIndex: number) => {
+        const lineage = treeLineageMap.get(lineIndex);
+        if (lineage && lineage.length > 0) return lineage.length;
+        const match = content.match(/^\s*/);
+        const spaces = match ? match[0].replace(/\t/g, '  ').length : 0;
+        return Math.min(12, Math.floor(spaces / 2));
+      };
+
+      for (let lineIndex = 0; lineIndex < totalLines; lineIndex += 1) {
+        const ratioIndex = totalLines <= 1 ? 0 : lineIndex / (totalLines - 1);
+        const rowIndex = Math.min(rowCount - 1, Math.floor(ratioIndex * rowCount));
+        const content = lines[lineIndex] ?? '';
+        rowHits[rowIndex] += 1;
+        rowDepths[rowIndex] = Math.max(rowDepths[rowIndex], getLineDepth(content, lineIndex));
+      }
+
+      const maxDepth = Math.max(...rowDepths);
+      for (let y = 0; y < rowCount; y += 1) {
+        if (rowHits[y] === 0) continue;
+        const depthWeight = maxDepth ? rowDepths[y] / maxDepth : 0;
+        const tier = depthWeight >= 0.66 ? 'high' : depthWeight >= 0.33 ? 'mid' : 'low';
+        const alpha = tier === 'high' ? 0.9 : tier === 'mid' ? 0.65 : 0.45;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = tier === 'high' ? accentColor : tier === 'mid' ? midColor : mutedColor;
+        ctx.fillRect(1, y, Math.max(1, width - 2), 1);
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    const segments = segmentRanges.length > 0 ? segmentRanges : [{ start: 0, end: totalLines - 1, depth: 0 }];
+    const maxLength = Math.max(...segments.map(segment => segment.end - segment.start + 1));
+    const minBlockPx = segments.length > height / 2 ? 2 : 3;
+
+    ctx.globalAlpha = 1;
+    segments.forEach(segment => {
+      const startRatio = segment.start / totalLines;
+      const endRatio = (segment.end + 1) / totalLines;
+      const length = segment.end - segment.start + 1;
+      const lengthRatio = maxLength ? length / maxLength : 0;
+      const depthBoost = segment.depth * 0.08;
+      const score = Math.min(1, lengthRatio + depthBoost);
+      const tier = score >= 0.66 ? 'high' : score >= 0.33 ? 'mid' : 'low';
+      const alpha = tier === 'high' ? 0.95 : tier === 'mid' ? 0.75 : 0.55;
+      let y = Math.round(startRatio * height);
+      let blockHeight = Math.round((endRatio - startRatio) * height);
+      if (blockHeight < minBlockPx) blockHeight = minBlockPx;
+      if (y + blockHeight > height) {
+        blockHeight = Math.max(1, height - y);
+      }
+      if (blockHeight <= 0) return;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = tier === 'high' ? accentColor : tier === 'mid' ? midColor : mutedColor;
+      ctx.fillRect(1, y, Math.max(1, width - 2), blockHeight);
+    });
+    ctx.globalAlpha = 1;
+  }, [lines, minimapSize, segmentRanges, treeLineageMap]);
 
   const searchCountLabel = useMemo(() => {
     if (!normalizedSearch) return '';
@@ -581,13 +793,15 @@ export function XMLInspectView({ value }: { value: string }) {
             />
           )}
         </div>
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 flex">
+          <div className="flex-1 min-h-0">
           <Virtuoso
             ref={virtuosoRef}
             totalCount={items.length}
             className="flex-1 font-mono text-sm"
             style={{ height: '100%' }}
             components={{ List: VirtuosoList }}
+            scrollerRef={attachScroller}
             itemContent={(index) => {
               const item = items[index];
               if (item.type === 'collapse') {
@@ -621,6 +835,30 @@ export function XMLInspectView({ value }: { value: string }) {
               );
             }}
           />
+          </div>
+          <div
+            ref={minimapRef}
+            onMouseDown={handleMinimapClick}
+            style={{ width: minimapWidth }}
+            className="relative mx-2 my-2 shrink-0 rounded-full border border-[var(--color-accent)]/55 bg-[var(--color-bg-primary)]/40 shadow-[0_0_0_1px_var(--color-bg-primary)]/70 cursor-pointer hover:border-[var(--color-accent)]/85"
+          >
+            <canvas
+              ref={minimapCanvasRef}
+              className="absolute inset-0 h-full w-full rounded-full"
+            />
+            {overviewViewport && minimapSize.height > 0 && (
+              <div
+                className="absolute left-[2px] right-[2px] rounded-full border border-[var(--color-accent)]/90 bg-[var(--color-accent)]/10 shadow-[0_0_6px_var(--color-accent)]/30 pointer-events-none"
+                style={{
+                  top: `${overviewViewport.start * minimapSize.height}px`,
+                  height: `${Math.max(
+                    10,
+                    (overviewViewport.end - overviewViewport.start) * minimapSize.height
+                  )}px`,
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
