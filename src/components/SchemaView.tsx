@@ -69,6 +69,10 @@ export function SchemaView({
   const [schemaScopeState, setSchemaScopeState] = useState<'all' | 'table' | 'field'>('all');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCustomDrawerOpen, setIsCustomDrawerOpen] = useState(false);
+  const [fieldAddedScope, setFieldAddedScope] = useState<'all' | 'existing' | 'new-table'>('all');
+  const [fieldRemovedScope, setFieldRemovedScope] = useState<'all' | 'existing' | 'removed-table'>(
+    'all'
+  );
   const schemaScope = schemaScopeProp ?? schemaScopeState;
   const showPresetSelector = schemaPresetId !== undefined && Boolean(onPresetChange);
   const showCustomEditor =
@@ -134,6 +138,10 @@ export function SchemaView({
       setSchemaScopeState(scope);
     }
     onScopeChange?.(scope);
+    if (scope !== 'field') {
+      setFieldAddedScope('all');
+      setFieldRemovedScope('all');
+    }
   };
   const parseList = (value: string) =>
     value
@@ -362,41 +370,143 @@ export function SchemaView({
     setIsCustomDrawerOpen(false);
   };
 
+  const schemaTableInfo = useMemo(() => {
+    const added = new Set<string>();
+    const removed = new Set<string>();
+    const modified = new Set<string>();
+    schemaDiff.items.forEach(item => {
+      if (item.kind !== 'table') return;
+      if (item.type === 'added') added.add(item.table);
+      else if (item.type === 'removed') removed.add(item.table);
+    });
+    schemaDiff.items.forEach(item => {
+      if (item.kind !== 'field') return;
+      if (added.has(item.table) || removed.has(item.table)) return;
+      if (item.type === 'added' || item.type === 'removed' || item.type === 'modified') {
+        modified.add(item.table);
+      }
+    });
+    const typeByTable = new Map<string, DiffType>();
+    added.forEach(table => typeByTable.set(table, 'added'));
+    removed.forEach(table => typeByTable.set(table, 'removed'));
+    modified.forEach(table => {
+      if (!typeByTable.has(table)) {
+        typeByTable.set(table, 'modified');
+      }
+    });
+    return { added, removed, modified, typeByTable };
+  }, [schemaDiff.items]);
+
   const filteredItems = useMemo(() => {
-    let items = schemaDiff.items.filter(item => activeFilters.has(item.type));
     if (schemaScope === 'table') {
-      const tableNames = new Set(
-        items.filter(item => item.kind === 'table').map(item => item.table)
-      );
-      items = items.filter(item => item.kind === 'table' || tableNames.has(item.table));
-    } else if (schemaScope === 'field') {
+      const tableNames = new Set<string>();
+      (['added', 'removed', 'modified'] as const).forEach(type => {
+        if (!activeFilters.has(type)) return;
+        const tableSet =
+          type === 'added'
+            ? schemaTableInfo.added
+            : type === 'removed'
+              ? schemaTableInfo.removed
+              : schemaTableInfo.modified;
+        tableSet.forEach(table => tableNames.add(table));
+      });
+      return schemaDiff.items.filter(item => tableNames.has(item.table));
+    }
+
+    let items = schemaDiff.items.filter(item => activeFilters.has(item.type));
+    if (schemaScope === 'field') {
       items = items.filter(item => item.kind === 'field');
+      if (fieldAddedScope !== 'all') {
+        items = items.filter(item => {
+          if (item.kind !== 'field' || item.type !== 'added') return false;
+          const isNewTable = schemaTableInfo.added.has(item.table);
+          return fieldAddedScope === 'new-table' ? isNewTable : !isNewTable;
+        });
+      }
+      if (fieldRemovedScope !== 'all') {
+        items = items.filter(item => {
+          if (item.kind !== 'field' || item.type !== 'removed') return false;
+          const isRemovedTable = schemaTableInfo.removed.has(item.table);
+          return fieldRemovedScope === 'removed-table' ? isRemovedTable : !isRemovedTable;
+        });
+      }
     }
     return items;
-  }, [schemaDiff.items, activeFilters, schemaScope]);
+  }, [
+    schemaDiff.items,
+    activeFilters,
+    schemaScope,
+    fieldAddedScope,
+    fieldRemovedScope,
+    schemaTableInfo,
+  ]);
+
+  useEffect(() => {
+    if (schemaScope !== 'field') {
+      if (fieldAddedScope !== 'all') {
+        setFieldAddedScope('all');
+      }
+      if (fieldRemovedScope !== 'all') {
+        setFieldRemovedScope('all');
+      }
+      return;
+    }
+    if (activeFilters.size !== 1 || !activeFilters.has('added')) {
+      if (fieldAddedScope !== 'all') {
+        setFieldAddedScope('all');
+      }
+    }
+    if (activeFilters.size !== 1 || !activeFilters.has('removed')) {
+      if (fieldRemovedScope !== 'all') {
+        setFieldRemovedScope('all');
+      }
+    }
+  }, [activeFilters, fieldAddedScope, fieldRemovedScope, schemaScope]);
 
   const schemaStats = useMemo(() => {
     const result = {
-      table: { added: 0, removed: 0, modified: 0 },
-      field: { added: 0, removed: 0, modified: 0 },
+      table: {
+        added: schemaTableInfo.added.size,
+        removed: schemaTableInfo.removed.size,
+        modified: schemaTableInfo.modified.size,
+      },
+      field: {
+        added: 0,
+        removed: 0,
+        modified: 0,
+        addedExisting: 0,
+        addedFromNewTable: 0,
+        removedExisting: 0,
+        removedFromRemovedTable: 0,
+      },
     };
     for (const item of schemaDiff.items) {
-      if (!activeFilters.has(item.type)) continue;
-      if (item.kind === 'table') {
-        if (item.type === 'added') result.table.added += 1;
-        else if (item.type === 'removed') result.table.removed += 1;
-        else if (item.type === 'modified') result.table.modified += 1;
-      } else {
-        if (item.type === 'added') result.field.added += 1;
-        else if (item.type === 'removed') result.field.removed += 1;
-        else if (item.type === 'modified') result.field.modified += 1;
+      if (item.kind !== 'field') continue;
+      if (item.type === 'added') {
+        result.field.added += 1;
+        if (schemaTableInfo.added.has(item.table)) {
+          result.field.addedFromNewTable += 1;
+        } else {
+          result.field.addedExisting += 1;
+        }
+      } else if (item.type === 'removed') {
+        result.field.removed += 1;
+        if (schemaTableInfo.removed.has(item.table)) {
+          result.field.removedFromRemovedTable += 1;
+        } else {
+          result.field.removedExisting += 1;
+        }
+      } else if (item.type === 'modified') {
+        result.field.modified += 1;
       }
     }
     return result;
-  }, [schemaDiff.items, activeFilters]);
+  }, [schemaDiff.items, schemaTableInfo]);
 
   const applySchemaFilter = (scope: 'table' | 'field', type: DiffType) => {
     updateSchemaScope(scope);
+    setFieldAddedScope('all');
+    setFieldRemovedScope('all');
     if (!onFilterToggle) return;
     const targetTypes: DiffType[] = [type];
     (['added', 'removed', 'modified'] as const).forEach(diffType => {
@@ -411,8 +521,50 @@ export function SchemaView({
   const isStatActive = (scope: 'table' | 'field', type: DiffType) =>
     schemaScope === scope && activeFilters.size === 1 && activeFilters.has(type);
 
+  const applySchemaFieldAddedFilter = (scope: 'existing' | 'new-table') => {
+    updateSchemaScope('field');
+    setFieldAddedScope(scope);
+    setFieldRemovedScope('all');
+    if (!onFilterToggle) return;
+    (['added', 'removed', 'modified'] as const).forEach(diffType => {
+      const shouldBeActive = diffType === 'added';
+      const isActive = activeFilters.has(diffType);
+      if (shouldBeActive !== isActive) {
+        onFilterToggle(diffType);
+      }
+    });
+  };
+
+  const applySchemaFieldRemovedFilter = (scope: 'existing' | 'removed-table') => {
+    updateSchemaScope('field');
+    setFieldAddedScope('all');
+    setFieldRemovedScope(scope);
+    if (!onFilterToggle) return;
+    (['added', 'removed', 'modified'] as const).forEach(diffType => {
+      const shouldBeActive = diffType === 'removed';
+      const isActive = activeFilters.has(diffType);
+      if (shouldBeActive !== isActive) {
+        onFilterToggle(diffType);
+      }
+    });
+  };
+
+  const isFieldAddedStatActive = (scope: 'existing' | 'new-table') =>
+    schemaScope === 'field' &&
+    activeFilters.size === 1 &&
+    activeFilters.has('added') &&
+    fieldAddedScope === scope;
+
+  const isFieldRemovedStatActive = (scope: 'existing' | 'removed-table') =>
+    schemaScope === 'field' &&
+    activeFilters.size === 1 &&
+    activeFilters.has('removed') &&
+    fieldRemovedScope === scope;
+
   const resetSchemaFilters = () => {
     updateSchemaScope('all');
+    setFieldAddedScope('all');
+    setFieldRemovedScope('all');
     if (!onFilterToggle) return;
     (['added', 'removed', 'modified'] as const).forEach(diffType => {
       if (!activeFilters.has(diffType)) {
@@ -441,6 +593,7 @@ export function SchemaView({
       const items = grouped.get(table) ?? [];
       const tableItem = items.find(item => item.kind === 'table');
       const fieldItems = items.filter(item => item.kind === 'field');
+      const tableType = schemaTableInfo.typeByTable.get(table);
       const counts = fieldItems.reduce(
         (acc, item) => {
           if (item.type === 'added') acc.added += 1;
@@ -456,7 +609,7 @@ export function SchemaView({
         kind: 'group',
         id: `group:${table}`,
         table,
-        tableType: tableItem?.type,
+        tableType,
         tableItemId: tableItem?.id,
         tableNavIndex: tableItem ? navIndex : undefined,
         counts,
@@ -492,7 +645,7 @@ export function SchemaView({
     }
 
     return { rows, navItems, navIndexToRowIndex, navIndexById };
-  }, [filteredItems, collapsedTables]);
+  }, [filteredItems, collapsedTables, schemaTableInfo]);
 
   useEffect(() => {
     onNavCountChange?.(navItems.length);
@@ -617,62 +770,140 @@ export function SchemaView({
         </div>
       </div>
       <div className="flex-1 overflow-auto px-4 py-3 space-y-4 text-sm text-[var(--color-text-secondary)]">
-        {schemaScope !== 'field' && (
-          <section>
+        {(schemaScope === 'table' || schemaScope === 'all') && (
+          <section className="space-y-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
               {t.schemaTableChanges}
             </div>
-            <div className="mt-2 grid gap-2">
-              <StatRow
-                label={t.schemaTableAddedLabel}
-                count={schemaStats.table.added}
-                tone="added"
-                active={isStatActive('table', 'added')}
-                onClick={
-                  schemaStats.table.added > 0
-                    ? () => applySchemaFilter('table', 'added')
-                    : undefined
-                }
-              />
-              <StatRow
-                label={t.schemaTableRemovedLabel}
-                count={schemaStats.table.removed}
-                tone="removed"
-                active={isStatActive('table', 'removed')}
-                onClick={
-                  schemaStats.table.removed > 0
-                    ? () => applySchemaFilter('table', 'removed')
-                    : undefined
-                }
-              />
-              <StatRow
-                label={t.schemaTableModifiedLabel}
-                count={schemaStats.table.modified}
-                tone="modified"
-                active={isStatActive('table', 'modified')}
-                onClick={
-                  schemaStats.table.modified > 0
-                    ? () => applySchemaFilter('table', 'modified')
-                    : undefined
-                }
-              />
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <StatRow
+                  label={t.schemaTableAddedLabel}
+                  count={schemaStats.table.added}
+                  tone="added"
+                  active={isStatActive('table', 'added')}
+                  onClick={
+                    schemaStats.table.added > 0
+                      ? () => applySchemaFilter('table', 'added')
+                      : undefined
+                  }
+                />
+                <div className="ml-3 grid gap-2 border-l border-[var(--color-border)]/60 pl-3">
+                  <StatRow
+                    label={t.schemaFieldAddedFromNewTableLabel}
+                    count={schemaStats.field.addedFromNewTable}
+                    tone="added"
+                    active={isFieldAddedStatActive('new-table')}
+                    onClick={
+                      schemaStats.field.addedFromNewTable > 0
+                        ? () => applySchemaFieldAddedFilter('new-table')
+                        : undefined
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <StatRow
+                  label={t.schemaTableRemovedLabel}
+                  count={schemaStats.table.removed}
+                  tone="removed"
+                  active={isStatActive('table', 'removed')}
+                  onClick={
+                    schemaStats.table.removed > 0
+                      ? () => applySchemaFilter('table', 'removed')
+                      : undefined
+                  }
+                />
+                <div className="ml-3 grid gap-2 border-l border-[var(--color-border)]/60 pl-3">
+                  <StatRow
+                    label={t.schemaFieldRemovedLabel}
+                    count={schemaStats.field.removedFromRemovedTable}
+                    tone="removed"
+                    active={isFieldRemovedStatActive('removed-table')}
+                    onClick={
+                      schemaStats.field.removedFromRemovedTable > 0
+                        ? () => applySchemaFieldRemovedFilter('removed-table')
+                        : undefined
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <StatRow
+                  label={t.schemaTableModifiedLabel}
+                  count={schemaStats.table.modified}
+                  tone="modified"
+                  active={isStatActive('table', 'modified')}
+                  onClick={
+                    schemaStats.table.modified > 0
+                      ? () => applySchemaFilter('table', 'modified')
+                      : undefined
+                  }
+                />
+                <div className="ml-3 grid gap-2 border-l border-[var(--color-border)]/60 pl-3">
+                  <StatRow
+                    label={t.schemaFieldAddedExistingLabel}
+                    count={schemaStats.field.addedExisting}
+                    tone="added"
+                    active={isFieldAddedStatActive('existing')}
+                    onClick={
+                      schemaStats.field.addedExisting > 0
+                        ? () => applySchemaFieldAddedFilter('existing')
+                        : undefined
+                    }
+                  />
+                  <StatRow
+                    label={t.schemaFieldRemovedLabel}
+                    count={schemaStats.field.removedExisting}
+                    tone="removed"
+                    active={isFieldRemovedStatActive('existing')}
+                    onClick={
+                      schemaStats.field.removedExisting > 0
+                        ? () => applySchemaFieldRemovedFilter('existing')
+                        : undefined
+                    }
+                  />
+                  <StatRow
+                    label={t.schemaFieldModifiedLabel}
+                    count={schemaStats.field.modified}
+                    tone="modified"
+                    active={isStatActive('field', 'modified')}
+                    onClick={
+                      schemaStats.field.modified > 0
+                        ? () => applySchemaFilter('field', 'modified')
+                        : undefined
+                    }
+                  />
+                </div>
+              </div>
             </div>
           </section>
         )}
-        {schemaScope !== 'table' && (
+        {(schemaScope === 'field' || schemaScope === 'all') && (
           <section>
             <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
               {t.schemaFieldChanges}
             </div>
             <div className="mt-2 grid gap-2">
               <StatRow
-                label={t.schemaFieldAddedLabel}
-                count={schemaStats.field.added}
+                label={t.schemaFieldAddedExistingLabel}
+                count={schemaStats.field.addedExisting}
                 tone="added"
-                active={isStatActive('field', 'added')}
+                active={isFieldAddedStatActive('existing')}
                 onClick={
-                  schemaStats.field.added > 0
-                    ? () => applySchemaFilter('field', 'added')
+                  schemaStats.field.addedExisting > 0
+                    ? () => applySchemaFieldAddedFilter('existing')
+                    : undefined
+                }
+              />
+              <StatRow
+                label={t.schemaFieldAddedFromNewTableLabel}
+                count={schemaStats.field.addedFromNewTable}
+                tone="added"
+                active={isFieldAddedStatActive('new-table')}
+                onClick={
+                  schemaStats.field.addedFromNewTable > 0
+                    ? () => applySchemaFieldAddedFilter('new-table')
                     : undefined
                 }
               />

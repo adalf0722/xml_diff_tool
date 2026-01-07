@@ -94,7 +94,7 @@ function generateHtmlReport(
     return generateInlineHtmlReport(xmlA, xmlB);
   }
   if (reportType === 'schema') {
-    return generateSchemaHtmlReport(schemaDiff, summaryOverride);
+    return generateSchemaHtmlReport(schemaDiff);
   }
   return generateNodeHtmlReport(diffResults, summaryOverride);
 }
@@ -244,9 +244,26 @@ function generateInlineHtmlReport(xmlA?: string, xmlB?: string): string {
     h1 { color: #f1f5f9; margin-bottom: 0.5rem; }
     .timestamp { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
     .summary {
-      display: flex;
+      display: grid;
       gap: 1rem;
       margin-bottom: 2rem;
+    }
+    .summary-block {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 0.75rem;
+      padding: 1rem;
+    }
+    .summary-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      margin-bottom: 0.5rem;
+    }
+    .summary-row {
+      display: flex;
+      gap: 0.75rem;
       flex-wrap: wrap;
     }
     .stat {
@@ -526,29 +543,47 @@ function generateNodeHtmlReport(
 </html>`;
 }
 
-function buildSchemaSummary(
-  schemaDiff?: SchemaDiffResult,
-  summaryOverride?: DiffReportSummary
-): DiffReportSummary {
-  if (summaryOverride) return summaryOverride;
-  if (!schemaDiff) {
-    return { added: 0, removed: 0, modified: 0, unchanged: 0, total: 0 };
-  }
-  const { stats } = schemaDiff;
-  return {
-    added: stats.added,
-    removed: stats.removed,
-    modified: stats.modified,
-    unchanged: stats.unchanged,
-    total: stats.total,
-  };
+interface SchemaReportSummary {
+  table: { added: number; removed: number; modified: number };
+  field: { added: number; removed: number; modified: number };
 }
 
-function generateSchemaHtmlReport(
-  schemaDiff?: SchemaDiffResult,
-  summaryOverride?: DiffReportSummary
-): string {
-  const summary = buildSchemaSummary(schemaDiff, summaryOverride);
+function buildSchemaReportSummary(schemaDiff?: SchemaDiffResult): SchemaReportSummary {
+  const summary: SchemaReportSummary = {
+    table: { added: 0, removed: 0, modified: 0 },
+    field: { added: 0, removed: 0, modified: 0 },
+  };
+  if (!schemaDiff) return summary;
+
+  const addedTables = new Set<string>();
+  const removedTables = new Set<string>();
+  const modifiedTables = new Set<string>();
+
+  schemaDiff.items.forEach(item => {
+    if (item.kind !== 'table') return;
+    if (item.type === 'added') addedTables.add(item.table);
+    else if (item.type === 'removed') removedTables.add(item.table);
+  });
+
+  schemaDiff.items.forEach(item => {
+    if (item.kind !== 'field') return;
+    if (addedTables.has(item.table) || removedTables.has(item.table)) return;
+    if (item.type === 'added' || item.type === 'removed' || item.type === 'modified') {
+      modifiedTables.add(item.table);
+    }
+  });
+
+  summary.table.added = addedTables.size;
+  summary.table.removed = removedTables.size;
+  summary.table.modified = modifiedTables.size;
+  summary.field.added = schemaDiff.stats.fieldAdded;
+  summary.field.removed = schemaDiff.stats.fieldRemoved;
+  summary.field.modified = schemaDiff.stats.fieldModified;
+  return summary;
+}
+
+function generateSchemaHtmlReport(schemaDiff?: SchemaDiffResult): string {
+  const summary = buildSchemaReportSummary(schemaDiff);
   const timestamp = new Date().toLocaleString();
   const items = schemaDiff?.items ?? [];
   const grouped = new Map<string, SchemaDiffResult['items']>();
@@ -732,10 +767,22 @@ function generateSchemaHtmlReport(
     <h1>XML Diff Schema Summary</h1>
     <p class="timestamp">Generated: ${timestamp}</p>
     <div class="summary">
-      <div class="stat stat-added">+ Added: ${summary.added}</div>
-      <div class="stat stat-removed">- Removed: ${summary.removed}</div>
-      <div class="stat stat-modified">~ Modified: ${summary.modified}</div>
-      <div class="stat stat-unchanged">= Unchanged: ${summary.unchanged}</div>
+      <div class="summary-block">
+        <div class="summary-title">Table Summary</div>
+        <div class="summary-row">
+          <div class="stat stat-added">+ Added tables: ${summary.table.added}</div>
+          <div class="stat stat-removed">- Removed tables: ${summary.table.removed}</div>
+          <div class="stat stat-modified">~ Modified tables: ${summary.table.modified}</div>
+        </div>
+      </div>
+      <div class="summary-block">
+        <div class="summary-title">Field Summary</div>
+        <div class="summary-row">
+          <div class="stat stat-added">+ Added fields: ${summary.field.added}</div>
+          <div class="stat stat-removed">- Removed fields: ${summary.field.removed}</div>
+          <div class="stat stat-modified">~ Modified fields: ${summary.field.modified}</div>
+        </div>
+      </div>
     </div>
     ${contentSection}
   </div>
@@ -761,7 +808,7 @@ function generateTextReport(
     return generateInlineTextReport(xmlA, xmlB);
   }
   if (reportType === 'schema') {
-    return generateSchemaTextReport(schemaDiff, summaryOverride);
+    return generateSchemaTextReport(schemaDiff);
   }
   return generateNodeTextReport(diffResults, summaryOverride);
 }
@@ -895,11 +942,8 @@ ${separator}
   return report;
 }
 
-function generateSchemaTextReport(
-  schemaDiff?: SchemaDiffResult,
-  summaryOverride?: DiffReportSummary
-): string {
-  const summary = buildSchemaSummary(schemaDiff, summaryOverride);
+function generateSchemaTextReport(schemaDiff?: SchemaDiffResult): string {
+  const summary = buildSchemaReportSummary(schemaDiff);
   const timestamp = new Date().toLocaleString();
   const separator = '='.repeat(60);
   const items = schemaDiff?.items ?? [];
@@ -914,13 +958,17 @@ function generateSchemaTextReport(
 ${separator}
 Generated: ${timestamp}
 
-SUMMARY
+TABLE SUMMARY
 ${'-'.repeat(30)}
-+ Added:     ${summary.added}
-- Removed:   ${summary.removed}
-~ Modified:  ${summary.modified}
-= Unchanged: ${summary.unchanged}
-  Total:     ${summary.total}
++ Added tables:    ${summary.table.added}
+- Removed tables:  ${summary.table.removed}
+~ Modified tables: ${summary.table.modified}
+
+FIELD SUMMARY
+${'-'.repeat(30)}
++ Added fields:    ${summary.field.added}
+- Removed fields:  ${summary.field.removed}
+~ Modified fields: ${summary.field.modified}
 
 SCHEMA CHANGES (${items.length})
 ${separator}

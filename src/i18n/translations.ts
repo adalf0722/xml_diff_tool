@@ -115,6 +115,8 @@ export interface Translations {
   schemaTableRemovedLabel: string;
   schemaTableModifiedLabel: string;
   schemaFieldAddedLabel: string;
+  schemaFieldAddedExistingLabel: string;
+  schemaFieldAddedFromNewTableLabel: string;
   schemaFieldRemovedLabel: string;
   schemaFieldModifiedLabel: string;
 
@@ -414,6 +416,8 @@ export const translations: Record<Language, Translations> = {
     schemaTableRemovedLabel: 'Tables removed',
     schemaTableModifiedLabel: 'Tables modified',
     schemaFieldAddedLabel: 'Fields added',
+    schemaFieldAddedExistingLabel: 'Fields added (existing tables)',
+    schemaFieldAddedFromNewTableLabel: 'Fields added (new tables)',
     schemaFieldRemovedLabel: 'Fields removed',
     schemaFieldModifiedLabel: 'Fields modified',
 
@@ -712,6 +716,8 @@ export const translations: Record<Language, Translations> = {
     schemaTableRemovedLabel: '刪除表',
     schemaTableModifiedLabel: '修改表',
     schemaFieldAddedLabel: '新增欄位',
+    schemaFieldAddedExistingLabel: '新增欄位（既有表）',
+    schemaFieldAddedFromNewTableLabel: '新增欄位（新增表）',
     schemaFieldRemovedLabel: '刪除欄位',
     schemaFieldModifiedLabel: '修改欄位',
 
@@ -1010,6 +1016,8 @@ export const translations: Record<Language, Translations> = {
     schemaTableRemovedLabel: '删除表',
     schemaTableModifiedLabel: '修改表',
     schemaFieldAddedLabel: '新增字段',
+    schemaFieldAddedExistingLabel: '新增字段（已有表）',
+    schemaFieldAddedFromNewTableLabel: '新增字段（新增表）',
     schemaFieldRemovedLabel: '删除字段',
     schemaFieldModifiedLabel: '修改字段',
 

@@ -88,34 +88,56 @@ export function DiffSummary({
 
   const inlineStatsToUse = inlineStatsProp || inlineStats;
   const emptySchemaSummary = { added: 0, removed: 0, modified: 0, unchanged: 0, total: 0 };
+  const schemaTableSummary = useMemo(() => {
+    if (!schemaDiff) return null;
+    const added = new Set<string>();
+    const removed = new Set<string>();
+    const modified = new Set<string>();
+    schemaDiff.items.forEach(item => {
+      if (item.kind !== 'table') return;
+      if (item.type === 'added') added.add(item.table);
+      else if (item.type === 'removed') removed.add(item.table);
+    });
+    schemaDiff.items.forEach(item => {
+      if (item.kind !== 'field') return;
+      if (added.has(item.table) || removed.has(item.table)) return;
+      if (item.type === 'added' || item.type === 'removed' || item.type === 'modified') {
+        modified.add(item.table);
+      }
+    });
+    return { added: added.size, removed: removed.size, modified: modified.size };
+  }, [schemaDiff]);
   const schemaScopedSummary = useMemo(() => {
-    if (!schemaStats) return emptySchemaSummary;
+    if (!schemaStats && !schemaDiff) return emptySchemaSummary;
     if (schemaScope === 'table') {
-      const total = schemaStats.tableAdded + schemaStats.tableRemoved;
+      const added = schemaTableSummary?.added ?? schemaStats?.tableAdded ?? 0;
+      const removed = schemaTableSummary?.removed ?? schemaStats?.tableRemoved ?? 0;
+      const modified = schemaTableSummary?.modified ?? 0;
+      const total = added + removed + modified;
       return {
-        added: schemaStats.tableAdded,
-        removed: schemaStats.tableRemoved,
-        modified: 0,
+        added,
+        removed,
+        modified,
         unchanged: 0,
         total,
       };
     }
     if (schemaScope === 'field') {
       const total =
-        schemaStats.fieldAdded +
-        schemaStats.fieldRemoved +
-        schemaStats.fieldModified +
-        schemaStats.fieldUnchanged;
+        (schemaStats?.fieldAdded ?? 0) +
+        (schemaStats?.fieldRemoved ?? 0) +
+        (schemaStats?.fieldModified ?? 0) +
+        (schemaStats?.fieldUnchanged ?? 0);
       return {
-        added: schemaStats.fieldAdded,
-        removed: schemaStats.fieldRemoved,
-        modified: schemaStats.fieldModified,
-        unchanged: schemaStats.fieldUnchanged,
+        added: schemaStats?.fieldAdded ?? 0,
+        removed: schemaStats?.fieldRemoved ?? 0,
+        modified: schemaStats?.fieldModified ?? 0,
+        unchanged: schemaStats?.fieldUnchanged ?? 0,
         total,
       };
     }
-    return schemaStats;
-  }, [schemaScope, schemaStats]);
+    return schemaStats ?? emptySchemaSummary;
+  }, [schemaDiff, schemaScope, schemaStats, schemaTableSummary]);
   const summary =
     activeView === 'schema'
       ? schemaScopedSummary
