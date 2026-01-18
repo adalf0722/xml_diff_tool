@@ -192,16 +192,24 @@ export function useDiffWorker() {
 
   // Public API: Compute diff between two XML strings
   const computeDiff = useCallback(async (
-    xmlA: string, 
+    xmlA: string,
     xmlB: string,
-    onProgress?: (progress: SingleDiffProgress) => void
+    onProgress?: (progress: SingleDiffProgress) => void,
+    options?: { strictMode?: boolean }
   ): Promise<DiffResultPayload> => {
-    return sendRequest<DiffResultPayload>('diff', { xmlA, xmlB }, onProgress as (progress: BatchProgress | SingleDiffProgress) => void);
+    return sendRequest<DiffResultPayload>(
+      'diff',
+      { xmlA, xmlB, strictMode: options?.strictMode },
+      onProgress as (progress: BatchProgress | SingleDiffProgress) => void
+    );
   }, [sendRequest]);
 
   // Public API: Parse a single XML string
-  const parseXML = useCallback(async (xml: string): Promise<ParseResult> => {
-    return sendRequest<ParseResult>('parse', { xml });
+  const parseXML = useCallback(async (
+    xml: string,
+    options?: { strictMode?: boolean }
+  ): Promise<ParseResult> => {
+    return sendRequest<ParseResult>('parse', { xml, strictMode: options?.strictMode });
   }, [sendRequest]);
 
   // Public API: Batch diff multiple file pairs

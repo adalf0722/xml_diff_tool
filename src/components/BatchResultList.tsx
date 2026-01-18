@@ -39,7 +39,7 @@ const OVERVIEW_THRESHOLDS = {
 };
 const OVERVIEW_MODE_STORAGE_KEY = 'xmldiff-overview-mode';
 const OVERVIEW_MODE_OPTIONS: OverviewModePreference[] = ['auto', 'minimap', 'hybrid', 'chunks'];
-const EMPTY_PARSE_RESULT: ParseResult = { success: false, root: null, error: null, rawXML: '' };
+const EMPTY_PARSE_RESULT: ParseResult = { success: false, root: null, error: null, warnings: [], rawXML: '' };
 const EMPTY_LINE_STATS: LineLevelStats = {
   added: 0,
   removed: 0,
@@ -393,12 +393,14 @@ export function BatchResultList({
           success: false,
           root: null,
           error: message,
+          warnings: [],
           rawXML: detailXmlA,
         });
         setDetailParseB({
           success: false,
           root: null,
           error: message,
+          warnings: [],
           rawXML: detailXmlB,
         });
         setDetailDiffResults([]);

@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp, Info, Columns, AlignLeft, GitBranch, Table } from 'lucide-react';
+import { ArrowRightLeft, AlertCircle, AlertTriangle, ChevronDown, ChevronUp, Info, Columns, AlignLeft, GitBranch, Table } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
@@ -247,6 +247,7 @@ function AppContent() {
     return normalizeOverviewModePref(localStorage.getItem(OVERVIEW_MODE_STORAGE_KEY));
   });
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [strictXmlMode, setStrictXmlMode] = useState(false);
 
   // Filter state - which diff types to show (unchanged is always shown, not a filter)
   const [activeFilters, setActiveFilters] = useState<Set<DiffType>>(
@@ -279,8 +280,20 @@ function AppContent() {
   // Single file comparison state
   const [singleFileState, setSingleFileState] = useState<'idle' | 'processing' | 'done'>('idle');
   const [singleFileProgress, setSingleFileProgress] = useState<SingleDiffProgress | null>(null);
-  const [parseResultA, setParseResultA] = useState<ParseResult>({ success: false, root: null, error: null, rawXML: '' });
-  const [parseResultB, setParseResultB] = useState<ParseResult>({ success: false, root: null, error: null, rawXML: '' });
+  const [parseResultA, setParseResultA] = useState<ParseResult>({
+    success: false,
+    root: null,
+    error: null,
+    warnings: [],
+    rawXML: '',
+  });
+  const [parseResultB, setParseResultB] = useState<ParseResult>({
+    success: false,
+    root: null,
+    error: null,
+    warnings: [],
+    rawXML: '',
+  });
   const [diffResults, setDiffResults] = useState<DiffResult[]>([]);
   const [lineDiffOps, setLineDiffOps] = useState<LineDiffOp[]>([]);
   const [inlineLineDiff, setInlineLineDiff] = useState<UnifiedDiffLine[]>([]);
@@ -329,6 +342,19 @@ function AppContent() {
   const pendingJumpIndexRef = useRef<number | null>(null);
   
   const hasParseError = Boolean(parseResultA.error || parseResultB.error);
+  const mixedContentCountA = useMemo(
+    () => parseResultA.warnings?.find(warning => warning.code === 'mixed-content')?.count ?? 0,
+    [parseResultA.warnings]
+  );
+  const mixedContentCountB = useMemo(
+    () => parseResultB.warnings?.find(warning => warning.code === 'mixed-content')?.count ?? 0,
+    [parseResultB.warnings]
+  );
+  const hasParseWarnings = mixedContentCountA + mixedContentCountB > 0;
+  const showParseWarnings = (hasParseWarnings || strictXmlMode) && (xmlA.trim() || xmlB.trim());
+  const parseWarningText = t.xmlWarningMixedContent
+    .replace('{countA}', String(mixedContentCountA))
+    .replace('{countB}', String(mixedContentCountB));
   const showParseError = hasParseError && singleFileState !== 'processing';
   const showSingleFileProgress =
     singleFileState === 'processing' && singleFileProgress?.stage !== 'done';
@@ -789,9 +815,14 @@ function AppContent() {
     setSingleFileProgress(null);
 
     try {
-      const result = await computeDiff(inputA, inputB, (progress) => {
-        setSingleFileProgress(progress);
-      });
+      const result = await computeDiff(
+        inputA,
+        inputB,
+        (progress) => {
+          setSingleFileProgress(progress);
+        },
+        { strictMode: strictXmlMode }
+      );
 
       markPerf('diff:done');
       measurePerf('measure:diff', 'diff:start', 'diff:done', {
@@ -842,12 +873,14 @@ function AppContent() {
         success: false, 
         root: null, 
         error: error instanceof Error ? error.message : 'Unknown error',
+        warnings: [],
         rawXML: inputA 
       });
       setParseResultB({ 
         success: false, 
         root: null, 
         error: error instanceof Error ? error.message : 'Unknown error',
+        warnings: [],
         rawXML: inputB 
       });
       setDiffResults([]);
@@ -866,7 +899,7 @@ function AppContent() {
         }
       }
     }
-  }, [computeDiff, resetLineDiffState, schemaConfig]);
+  }, [computeDiff, resetLineDiffState, schemaConfig, strictXmlMode]);
 
   useEffect(() => {
     if (!parseResultA.success || !parseResultB.success) return;
@@ -913,6 +946,8 @@ function AppContent() {
     treeNavCount,
   ]);
 
+  const lastStrictModeRef = useRef(strictXmlMode);
+
   useEffect(() => {
     // Only process if both files have content
     const hasBothFiles = xmlA.trim().length > 0 && xmlB.trim().length > 0;
@@ -927,8 +962,8 @@ function AppContent() {
       setSingleFileState(prev => {
         if (prev !== 'idle') {
           setSingleFileProgress(null);
-          setParseResultA({ success: false, root: null, error: null, rawXML: xmlA });
-          setParseResultB({ success: false, root: null, error: null, rawXML: xmlB });
+          setParseResultA({ success: false, root: null, error: null, warnings: [], rawXML: xmlA });
+          setParseResultB({ success: false, root: null, error: null, warnings: [], rawXML: xmlB });
           setDiffResults([]);
           resetLineDiffState();
           return 'idle';
@@ -959,6 +994,18 @@ function AppContent() {
       clearTimeout(timeoutId);
     };
   }, [xmlA, xmlB, resetLineDiffState, runDiff]);
+
+  useEffect(() => {
+    if (lastStrictModeRef.current === strictXmlMode) return;
+    lastStrictModeRef.current = strictXmlMode;
+    const hasBothFiles = xmlA.trim().length > 0 && xmlB.trim().length > 0;
+    if (!hasBothFiles) return;
+    if (processingRef.current) {
+      pendingDiffRef.current = true;
+      return;
+    }
+    void runDiff(xmlA, xmlB);
+  }, [strictXmlMode, xmlA, xmlB, runDiff]);
 
   // Cancel single file processing
   const handleCancelSingle = useCallback(() => {
@@ -1221,6 +1268,36 @@ function AppContent() {
             <p className="mt-1 text-sm text-red-500/80">
               {t.xmlParseErrorDesc}
             </p>
+          </div>
+        )}
+
+        {showParseWarnings && (
+          <div className="px-4 py-2 border-b border-amber-500/30 bg-amber-500/10">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-amber-200">
+              <AlertTriangle size={14} className="text-amber-300" />
+              <span className="font-semibold text-amber-100">{t.xmlWarningLabel}</span>
+              {hasParseWarnings ? (
+                <span className="text-amber-100/80">{parseWarningText}</span>
+              ) : (
+                <span className="text-amber-100/80">{t.xmlStrictModeActive}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setStrictXmlMode(prev => !prev)}
+                className={`ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+                  strictXmlMode
+                    ? 'border-amber-300/50 bg-amber-400/20 text-amber-100'
+                    : 'border-amber-300/30 text-amber-200 hover:bg-amber-400/10'
+                }`}
+                title={t.xmlStrictModeDesc}
+                aria-pressed={strictXmlMode}
+              >
+                {t.xmlStrictMode}
+              </button>
+              <span className="hidden md:inline text-[10px] text-amber-100/70">
+                {t.xmlStrictModeDesc}
+              </span>
+            </div>
           </div>
         )}
 

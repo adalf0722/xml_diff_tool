@@ -45,6 +45,11 @@ export interface Translations {
   inspectSearchNoMatch: string;
   inspectSearchPrev: string;
   inspectSearchNext: string;
+  xmlWarningLabel: string;
+  xmlWarningMixedContent: string;
+  xmlStrictMode: string;
+  xmlStrictModeDesc: string;
+  xmlStrictModeActive: string;
 
   // View Tabs
   sideBySide: string;
@@ -367,6 +372,11 @@ export const translations: Record<Language, Translations> = {
     inspectSearchNoMatch: 'No matches',
     inspectSearchPrev: 'Previous match',
     inspectSearchNext: 'Next match',
+    xmlWarningLabel: 'Schema warning',
+    xmlWarningMixedContent: 'Mixed content detected between tags (A: {countA}, B: {countB}).',
+    xmlStrictMode: 'Strict mode',
+    xmlStrictModeDesc: 'Treat schema warnings as errors',
+    xmlStrictModeActive: 'Strict mode is enabled.',
 
     // View Tabs
     sideBySide: 'Side by Side',
@@ -688,6 +698,11 @@ export const translations: Record<Language, Translations> = {
     inspectSearchNoMatch: '沒有符合項目',
     inspectSearchPrev: '上一筆',
     inspectSearchNext: '下一筆',
+    xmlWarningLabel: '規範警告',
+    xmlWarningMixedContent: '偵測到標籤間的文字內容（A: {countA}，B: {countB}）。',
+    xmlStrictMode: '嚴格模式',
+    xmlStrictModeDesc: '將規範警告視為錯誤',
+    xmlStrictModeActive: '嚴格模式已啟用。',
 
     // View Tabs
     sideBySide: '並排對比',
@@ -1009,6 +1024,11 @@ export const translations: Record<Language, Translations> = {
     inspectSearchNoMatch: '没有匹配项',
     inspectSearchPrev: '上一项',
     inspectSearchNext: '下一项',
+    xmlWarningLabel: '\u89c4\u8303\u8b66\u544a',
+    xmlWarningMixedContent: '\u68c0\u6d4b\u5230\u6807\u7b7e\u95f4\u7684\u6587\u5b57\u5185\u5bb9\uff08A: {countA}\uff0cB: {countB}\uff09\u3002',
+    xmlStrictMode: '\u4e25\u683c\u6a21\u5f0f',
+    xmlStrictModeDesc: '\u5c06\u89c4\u8303\u8b66\u544a\u89c6\u4e3a\u9519\u8bef',
+    xmlStrictModeActive: '\u4e25\u683c\u6a21\u5f0f\u5df2\u542f\u7528\u3002',
 
     // View Tabs
     sideBySide: '并排对比',

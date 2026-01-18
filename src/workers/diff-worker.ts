@@ -21,7 +21,13 @@ export interface ParseResult {
   success: boolean;
   root: XMLNode | null;
   error: string | null;
+  warnings: ParseWarning[];
   rawXML: string;
+}
+
+export interface ParseWarning {
+  code: 'mixed-content';
+  count: number;
 }
 
 export type DiffType = 'added' | 'removed' | 'modified' | 'unchanged';
@@ -104,10 +110,12 @@ export interface WorkerRequest {
 export interface DiffPayload {
   xmlA: string;
   xmlB: string;
+  strictMode?: boolean;
 }
 
 export interface ParsePayload {
   xml: string;
+  strictMode?: boolean;
 }
 
 export interface BatchDiffPayload {
@@ -173,12 +181,13 @@ const xmlParserOptions = {
   trimValues: true,
 };
 
-function parseXML(xmlString: string): ParseResult {
+function parseXML(xmlString: string, strictMode?: boolean): ParseResult {
   if (!xmlString || xmlString.trim() === '') {
     return {
       success: false,
       root: null,
       error: 'XML content is empty',
+      warnings: [],
       rawXML: xmlString,
     };
   }
@@ -192,6 +201,7 @@ function parseXML(xmlString: string): ParseResult {
         success: false,
         root: null,
         error: 'Failed to parse XML',
+        warnings: [],
         rawXML: xmlString,
       };
     }
@@ -207,6 +217,18 @@ function parseXML(xmlString: string): ParseResult {
         success: false,
         root: null,
         error: 'No root element found',
+        warnings: [],
+        rawXML: xmlString,
+      };
+    }
+
+    const warnings = collectParseWarnings(rootData);
+    if (strictMode && warnings.length > 0) {
+      return {
+        success: false,
+        root: null,
+        error: 'Strict mode: mixed content detected',
+        warnings,
         rawXML: xmlString,
       };
     }
@@ -217,6 +239,7 @@ function parseXML(xmlString: string): ParseResult {
       success: true,
       root,
       error: null,
+      warnings,
       rawXML: xmlString,
     };
   } catch (error) {
@@ -224,9 +247,59 @@ function parseXML(xmlString: string): ParseResult {
       success: false,
       root: null,
       error: error instanceof Error ? error.message : 'XML parsing failed',
+      warnings: [],
       rawXML: xmlString,
     };
   }
+}
+
+function collectParseWarnings(rootData: Record<string, unknown>): ParseWarning[] {
+  let mixedContentCount = 0;
+
+  const visit = (data: Record<string, unknown>) => {
+    const keys = Object.keys(data);
+    const elementKey = keys.find(
+      k => !k.startsWith('@_') && !k.startsWith('#') && !k.startsWith(':@') && !k.startsWith('?')
+    );
+    if (!elementKey) return;
+    const content = data[elementKey];
+    if (!Array.isArray(content)) return;
+
+    let hasElement = false;
+    let hasText = false;
+
+    for (const child of content) {
+      if (!child || typeof child !== 'object') continue;
+      const childObj = child as Record<string, unknown>;
+      if ('#text' in childObj) {
+        const textVal = String(childObj['#text']).trim();
+        if (textVal) {
+          hasText = true;
+        }
+        continue;
+      }
+      if ('#comment' in childObj || '#cdata' in childObj) {
+        continue;
+      }
+      const childKeys = Object.keys(childObj);
+      const childName = childKeys.find(
+        k => !k.startsWith('@_') && !k.startsWith(':@') && !k.startsWith('?')
+      );
+      if (childName) {
+        hasElement = true;
+        visit(childObj);
+      }
+    }
+
+    if (hasElement && hasText) {
+      mixedContentCount += 1;
+    }
+  };
+
+  visit(rootData);
+
+  if (mixedContentCount <= 0) return [];
+  return [{ code: 'mixed-content', count: mixedContentCount }];
 }
 
 /**
@@ -915,8 +988,8 @@ self.onmessage = function(event: MessageEvent<WorkerRequest>) {
   try {
     switch (type) {
       case 'parse': {
-        const { xml } = payload as ParsePayload;
-        const result = parseXML(xml);
+        const { xml, strictMode } = payload as ParsePayload;
+        const result = parseXML(xml, strictMode);
         self.postMessage({
           id,
           type: 'parse-result',
@@ -926,7 +999,7 @@ self.onmessage = function(event: MessageEvent<WorkerRequest>) {
       }
 
       case 'diff': {
-        const { xmlA, xmlB } = payload as DiffPayload;
+        const { xmlA, xmlB, strictMode } = payload as DiffPayload;
         
         // Stage 1: Parse XML A (0-33%)
         self.postMessage({
@@ -938,7 +1011,7 @@ self.onmessage = function(event: MessageEvent<WorkerRequest>) {
           } as SingleDiffProgressPayload,
         } as WorkerResponse);
         
-        const parseA = parseXML(xmlA);
+        const parseA = parseXML(xmlA, strictMode);
         
         self.postMessage({
           id,
@@ -959,7 +1032,7 @@ self.onmessage = function(event: MessageEvent<WorkerRequest>) {
           } as SingleDiffProgressPayload,
         } as WorkerResponse);
         
-        const parseB = parseXML(xmlB);
+        const parseB = parseXML(xmlB, strictMode);
         
         self.postMessage({
           id,

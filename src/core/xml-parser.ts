@@ -16,18 +16,29 @@ export interface ParseResult {
   success: boolean;
   root: XMLNode | null;
   error: string | null;
+  warnings: ParseWarning[];
   rawXML: string;
+}
+
+export interface ParseWarning {
+  code: 'mixed-content';
+  count: number;
+}
+
+export interface ParseOptions {
+  strictMode?: boolean;
 }
 
 /**
  * Parse XML string into a normalized tree structure
  */
-export function parseXML(xmlString: string): ParseResult {
+export function parseXML(xmlString: string, options: ParseOptions = {}): ParseResult {
   if (!xmlString || xmlString.trim() === '') {
     return {
       success: false,
       root: null,
       error: 'XML content is empty',
+      warnings: [],
       rawXML: xmlString,
     };
   }
@@ -44,6 +55,18 @@ export function parseXML(xmlString: string): ParseResult {
         success: false,
         root: null,
         error: errorText,
+        warnings: [],
+        rawXML: xmlString,
+      };
+    }
+
+    const warnings = collectParseWarnings(doc.documentElement);
+    if (options.strictMode && warnings.length > 0) {
+      return {
+        success: false,
+        root: null,
+        error: 'Strict mode: mixed content detected',
+        warnings,
         rawXML: xmlString,
       };
     }
@@ -55,6 +78,7 @@ export function parseXML(xmlString: string): ParseResult {
       success: true,
       root,
       error: null,
+      warnings,
       rawXML: xmlString,
     };
   } catch (error) {
@@ -62,9 +86,38 @@ export function parseXML(xmlString: string): ParseResult {
       success: false,
       root: null,
       error: error instanceof Error ? error.message : 'XML parsing failed',
+      warnings: [],
       rawXML: xmlString,
     };
   }
+}
+
+function collectParseWarnings(root: Element): ParseWarning[] {
+  let mixedContentCount = 0;
+
+  const visit = (node: Element) => {
+    let hasElement = false;
+    let hasText = false;
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        hasElement = true;
+        visit(child as Element);
+      } else if (child.nodeType === Node.TEXT_NODE) {
+        const text = child.textContent?.trim();
+        if (text) {
+          hasText = true;
+        }
+      }
+    }
+    if (hasElement && hasText) {
+      mixedContentCount += 1;
+    }
+  };
+
+  visit(root);
+
+  if (mixedContentCount <= 0) return [];
+  return [{ code: 'mixed-content', count: mixedContentCount }];
 }
 
 /**
