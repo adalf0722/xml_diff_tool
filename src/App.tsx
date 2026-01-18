@@ -10,7 +10,6 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
 import type { AppMode } from './components/Header';
 import { XMLInputPanel } from './components/XMLInputPanel';
-import { ViewTabs } from './components/ViewTabs';
 import type { ViewMode } from './components/ViewTabs';
 import { DiffSummary } from './components/DiffSummary';
 import { DiffNavigation } from './components/DiffNavigation';
@@ -48,6 +47,7 @@ import {
   startFpsMonitor,
   startLongTaskObserver,
 } from './utils/perf-metrics';
+import { recommendView, type ViewRecommendation } from './utils/view-recommendation';
 
 // Sample XML for demo
 const SAMPLE_XML_A = `<?xml version="1.0" encoding="UTF-8"?>
@@ -297,6 +297,9 @@ function AppContent() {
   const [schemaDiff, setSchemaDiff] = useState<SchemaDiffResult>(() => createEmptySchemaDiff());
   const [schemaDiffCount, setSchemaDiffCount] = useState(0);
   const [schemaScope, setSchemaScope] = useState<'all' | 'table' | 'field'>('all');
+  const [viewRecommendation, setViewRecommendation] = useState<ViewRecommendation>(() =>
+    recommendView({ hasXmlA: false, hasXmlB: false })
+  );
   const defaultSchemaCustomConfig = useMemo(
     () => getSchemaPresetConfig(DEFAULT_SCHEMA_PRESET_ID),
     []
@@ -354,6 +357,15 @@ function AppContent() {
     if (activeView === 'schema') return t.schemaView;
     return t.sideBySide;
   }, [activeView, t]);
+  const viewLabelMap = useMemo(
+    () => ({
+      'side-by-side': t.sideBySide,
+      inline: t.inline,
+      tree: t.treeView,
+      schema: t.schemaView,
+    }),
+    [t]
+  );
   const viewHintMap = useMemo(
     () => ({
       'side-by-side': t.helpViewSide,
@@ -364,6 +376,18 @@ function AppContent() {
     [t]
   );
   const activeViewHint = viewHintMap[activeView];
+  const recommendationReasonMap = useMemo(
+    () => ({
+      'missing-inputs': t.viewRecommendReasonMissing,
+      'schema-structure': t.viewRecommendReasonSchema,
+      'tree-structure': t.viewRecommendReasonTree,
+      'inline-scan': t.viewRecommendReasonInline,
+      'side-precision': t.viewRecommendReasonSide,
+    }),
+    [t]
+  );
+  const recommendationLabel = viewLabelMap[viewRecommendation.view];
+  const recommendationReason = recommendationReasonMap[viewRecommendation.reason];
   const viewModeChips = useMemo(
     () => [
       {
@@ -462,6 +486,13 @@ function AppContent() {
     }),
     [t]
   );
+  const overviewModeSummary = useMemo(() => {
+    if (overviewModePref === 'auto') {
+      return `${t.overviewModeAuto} · ${overviewModeLabels[overviewMode]}`;
+    }
+    return overviewModeLabels[overviewModePref];
+  }, [overviewMode, overviewModeLabels, overviewModePref, t]);
+  const showRecommendationHint = viewRecommendation.view !== activeView;
   
   const resetLineDiffState = useCallback(() => {
     setLineDiffOps([]);
@@ -772,21 +803,38 @@ function AppContent() {
       setParseResultA(result.parseA);
       setParseResultB(result.parseB);
       setDiffResults(result.results);
-      setSchemaDiff(buildSchemaDiff(result.parseA.root, result.parseB.root, schemaConfig));
-      setLineDiffOps(result.lineDiff.ops);
-      setInlineLineDiff(result.lineDiff.inlineLines);
-      setLineLevelStats({
+      const nextSchemaDiff = buildSchemaDiff(result.parseA.root, result.parseB.root, schemaConfig);
+      const nextLineStats = {
         added: result.lineDiff.sideBySideStats.added,
         removed: result.lineDiff.sideBySideStats.removed,
         modified: result.lineDiff.sideBySideStats.modified,
         unchanged: result.lineDiff.sideBySideStats.unchanged,
         total: result.lineDiff.sideBySideStats.total,
-      });
+      };
+
+      setSchemaDiff(nextSchemaDiff);
+      setLineDiffOps(result.lineDiff.ops);
+      setInlineLineDiff(result.lineDiff.inlineLines);
+      setLineLevelStats(nextLineStats);
       setInlineStats(result.lineDiff.inlineStats);
       setInlineDiffCount(result.lineDiff.inlineDiffCount);
       setSideBySideDiffCount(result.lineDiff.sideBySideStats.navigableCount);
       setDisplayXmlA(result.lineDiff.formattedXmlA || inputA);
       setDisplayXmlB(result.lineDiff.formattedXmlB || inputB);
+      setViewRecommendation(
+        recommendView({
+          hasXmlA: Boolean(inputA.trim()),
+          hasXmlB: Boolean(inputB.trim()),
+          schemaStats: nextSchemaDiff.stats,
+          lineStats: {
+            added: nextLineStats.added,
+            removed: nextLineStats.removed,
+            modified: nextLineStats.modified,
+            total: nextLineStats.total,
+          },
+          inlineStats: result.lineDiff.inlineStats ?? undefined,
+        })
+      );
       setSingleFileState('done');
     } catch (error) {
       console.error('Single file diff error:', error);
@@ -804,6 +852,7 @@ function AppContent() {
       });
       setDiffResults([]);
       resetLineDiffState();
+      setViewRecommendation(recommendView({ hasXmlA: Boolean(inputA.trim()), hasXmlB: Boolean(inputB.trim()) }));
       setSingleFileState('idle');
     } finally {
       processingRef.current = false;
@@ -1177,60 +1226,91 @@ function AppContent() {
 
         {!showParseError && !showEmptyState && (
           <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-            <div className="flex flex-col gap-2 px-4 pt-2 pb-1 md:flex-row md:items-center md:justify-between">
-              <ViewTabs activeView={activeView} onViewChange={setActiveView} compact />
-              <div className="self-end md:self-auto">
-                <DiffNavigation
-                  currentIndex={currentDiffIndex}
-                  totalDiffs={totalNavigableDiffs}
-                  onNavigate={handleNavigateToDiff}
-                />
+            <div className="px-4 pt-2 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap gap-1.5 text-[10px] text-[var(--color-text-secondary)]">
+                  {viewModeChips.map((chip) => {
+                    const isActive = activeView === chip.id;
+                    const isRecommended = viewRecommendation.view === chip.id;
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => setActiveView(chip.id)}
+                        aria-current={isActive ? 'page' : undefined}
+                        aria-pressed={isActive}
+                        title={`${chip.label} - ${chip.desc}`}
+                        className={`flex items-center gap-1 rounded-full border px-2 py-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/70 ${chip.className} ${
+                          isActive
+                            ? 'ring-2 ring-[var(--color-accent)]/70 shadow-md shadow-[var(--color-accent)]/20 opacity-100'
+                            : 'opacity-70 hover:opacity-95'
+                        }`}
+                      >
+                        <span className="text-[var(--color-text-primary)]">{chip.icon}</span>
+                        <span className={`font-semibold ${isActive ? 'text-white' : ''}`}>{chip.label}</span>
+                        <span className="text-[var(--color-text-muted)]">—</span>
+                        <span>{chip.desc}</span>
+                        {isRecommended && (
+                          <span
+                            className={`ml-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                              isActive
+                                ? 'border-white/40 text-white'
+                                : 'border-[var(--color-accent)]/50 text-[var(--color-accent)]'
+                            }`}
+                          >
+                            {t.viewRecommendBadge}
+                          </span>
+                        )}
+                        {isActive && (
+                          <span
+                            className="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="ml-auto">
+                  <DiffNavigation
+                    currentIndex={currentDiffIndex}
+                    totalDiffs={totalNavigableDiffs}
+                    onNavigate={handleNavigateToDiff}
+                  />
+                </div>
               </div>
             </div>
-            <div className="px-4 pb-1">
-              <div className="flex flex-wrap gap-1.5 text-[10px] text-[var(--color-text-secondary)]">
-                {viewModeChips.map((chip) => {
-                  const isActive = activeView === chip.id;
-                  return (
-                    <div
-                      key={chip.id}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={`flex items-center gap-1 rounded-full border px-2 py-1 ${chip.className} ${
-                        isActive
-                          ? 'ring-2 ring-[var(--color-accent)]/70 shadow-md shadow-[var(--color-accent)]/20 opacity-100'
-                          : 'opacity-60 hover:opacity-90'
-                      }`}
+            {(showRecommendationHint || showCompareHint) && (
+              <div className="px-4 pb-2">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-text-secondary)]">
+                  {showRecommendationHint && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveView(viewRecommendation.view)}
+                      title={`${t.viewRecommendLabel}: ${recommendationLabel} - ${recommendationReason}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-2 py-1 text-[10px] font-semibold text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-tertiary)]"
                     >
-                      <span className="text-[var(--color-text-primary)]">{chip.icon}</span>
-                      <span className={`font-semibold ${isActive ? 'text-white' : ''}`}>{chip.label}</span>
-                      <span className="text-[var(--color-text-muted)]">—</span>
-                      <span>{chip.desc}</span>
-                      {isActive && (
-                        <span
-                          className="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="px-4 pb-2">
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                <Info size={14} className="text-[var(--color-accent)]" />
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                  {t.helpViewsTitle}
-                </span>
-                <span className="font-medium text-[var(--color-text-primary)]">{activeViewLabel}</span>
-                <span className="text-[var(--color-text-secondary)]">{activeViewHint}</span>
-                {showCompareHint && (
-                  <span className="ml-auto text-[10px] font-medium text-amber-300">
-                    {t.enterXmlToCompare}
+                      <span className="rounded-full border border-[var(--color-accent)]/50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-accent)]">
+                        {t.viewRecommendBadge}
+                      </span>
+                      <span>{recommendationLabel}</span>
+                      <Info size={12} className="text-[var(--color-text-muted)]" />
+                    </button>
+                  )}
+                  <span
+                    className="text-[10px] text-[var(--color-text-muted)]"
+                    title={activeViewHint}
+                  >
+                    {t.viewCurrentLabel}: <span className="text-[var(--color-text-secondary)]">{activeViewLabel}</span>
                   </span>
-                )}
+                  {showCompareHint && (
+                    <span className="ml-auto text-[10px] font-medium text-amber-300">
+                      {t.enterXmlToCompare}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
             <div className="px-4 pt-1 pb-4">
               <DiffSummary
                 diffResults={diffResults}
@@ -1250,43 +1330,50 @@ function AppContent() {
                 compact
               />
               {showOverviewControls && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-secondary)]">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                    {t.overviewModeLabel}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/30 p-1">
-                    {overviewModeOptions.map(option => {
-                      const isActive = overviewModePref === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setOverviewModePref(option.value)}
-                          className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                            isActive
-                              ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
-                              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <span className="text-[10px] text-[var(--color-text-muted)]">
-                    {overviewCoverageText}
-                  </span>
-                  {overviewModePref === 'auto' && (
+                <details className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                  <summary className="flex items-center gap-2 cursor-pointer list-none">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                      {t.overviewModeLabel}
+                    </span>
+                    <span className="text-[10px] text-[var(--color-text-secondary)]">
+                      {overviewModeSummary}
+                    </span>
+                  </summary>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/30 p-1">
+                      {overviewModeOptions.map(option => {
+                        const isActive = overviewModePref === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setOverviewModePref(option.value)}
+                            className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                              isActive
+                                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <span className="text-[10px] text-[var(--color-text-muted)]">
-                      {t.overviewModeAutoHint.replace('{mode}', overviewModeLabels[overviewMode])}
+                      {overviewCoverageText}
                     </span>
-                  )}
-                  {showOverviewHint && (
-                    <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">
-                      {t.overviewHighDensityHint}
-                    </span>
-                  )}
-                </div>
+                    {overviewModePref === 'auto' && (
+                      <span className="text-[10px] text-[var(--color-text-muted)]">
+                        {t.overviewModeAutoHint.replace('{mode}', overviewModeLabels[overviewMode])}
+                      </span>
+                    )}
+                    {showOverviewHint && (
+                      <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">
+                        {t.overviewHighDensityHint}
+                      </span>
+                    )}
+                  </div>
+                </details>
               )}
             </div>
           </div>

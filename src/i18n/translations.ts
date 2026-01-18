@@ -55,6 +55,14 @@ export interface Translations {
   viewModeShortInline: string;
   viewModeShortTree: string;
   viewModeShortSchema: string;
+  viewRecommendLabel: string;
+  viewRecommendBadge: string;
+  viewCurrentLabel: string;
+  viewRecommendReasonMissing: string;
+  viewRecommendReasonSchema: string;
+  viewRecommendReasonTree: string;
+  viewRecommendReasonInline: string;
+  viewRecommendReasonSide: string;
 
   // Diff Summary
   diffSummary: string;
@@ -369,6 +377,14 @@ export const translations: Record<Language, Translations> = {
     viewModeShortInline: 'Merged diff',
     viewModeShortTree: 'Structure diff',
     viewModeShortSchema: 'Tables/fields',
+    viewRecommendLabel: 'Recommended',
+    viewRecommendBadge: 'Recommended',
+    viewCurrentLabel: 'Current',
+    viewRecommendReasonMissing: 'Upload XML A and XML B to compare.',
+    viewRecommendReasonSchema: 'Detected table/field structure changes.',
+    viewRecommendReasonTree: 'Structural changes look significant.',
+    viewRecommendReasonInline: 'Changes are dense; scan additions/removals quickly.',
+    viewRecommendReasonSide: 'Best for precise line-by-line checks.',
 
     // Diff Summary
     diffSummary: 'Diff Summary:',
@@ -682,6 +698,14 @@ export const translations: Record<Language, Translations> = {
     viewModeShortInline: '合併視圖',
     viewModeShortTree: '結構比對',
     viewModeShortSchema: '表/欄位',
+    viewRecommendLabel: '推薦選擇',
+    viewRecommendBadge: '推薦',
+    viewCurrentLabel: '目前',
+    viewRecommendReasonMissing: '請先補齊 XML A 與 XML B 才能比對。',
+    viewRecommendReasonSchema: '偵測到表/欄位結構變更。',
+    viewRecommendReasonTree: '結構變更比例偏高。',
+    viewRecommendReasonInline: '新增/刪除密度高，適合快速掃描。',
+    viewRecommendReasonSide: '適合精準逐行核對。',
 
     // Diff Summary
     diffSummary: '差異摘要:',
@@ -996,6 +1020,14 @@ export const translations: Record<Language, Translations> = {
     viewModeShortInline: '\u5408\u5e76\u89c6\u56fe',
     viewModeShortTree: '\u7ed3\u6784\u5bf9\u6bd4',
     viewModeShortSchema: '\u8868/\u5b57\u6bb5',
+    viewRecommendLabel: '\u63a8\u8350\u9009\u62e9',
+    viewRecommendBadge: '\u63a8\u8350',
+    viewCurrentLabel: '\u5f53\u524d',
+    viewRecommendReasonMissing: '\u8bf7\u5148\u8865\u9f50 XML A \u4e0e XML B \u624d\u80fd\u5bf9\u6bd4\u3002',
+    viewRecommendReasonSchema: '\u68c0\u6d4b\u5230\u8868/\u5b57\u6bb5\u7ed3\u6784\u53d8\u66f4\u3002',
+    viewRecommendReasonTree: '\u7ed3\u6784\u53d8\u66f4\u6bd4\u4f8b\u504f\u9ad8\u3002',
+    viewRecommendReasonInline: '\u65b0\u589e/\u5220\u9664\u5bc6\u5ea6\u9ad8\uff0c\u9002\u5408\u5feb\u901f\u626b\u63cf\u3002',
+    viewRecommendReasonSide: '\u9002\u5408\u7cbe\u51c6\u9010\u884c\u6838\u5bf9\u3002',
     // Diff Summary
     diffSummary: '差异摘要:',
     added: '新增',
