@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp, Info, Columns, AlignLeft, GitBranch, Table } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
@@ -364,6 +364,39 @@ function AppContent() {
     [t]
   );
   const activeViewHint = viewHintMap[activeView];
+  const viewModeChips = useMemo(
+    () => [
+      {
+        id: 'side-by-side' as const,
+        label: t.sideBySide,
+        desc: t.viewModeShortSide,
+        className: 'border-blue-500/40 bg-blue-500/10 text-blue-200',
+        icon: <Columns size={12} />,
+      },
+      {
+        id: 'inline' as const,
+        label: t.inline,
+        desc: t.viewModeShortInline,
+        className: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
+        icon: <AlignLeft size={12} />,
+      },
+      {
+        id: 'tree' as const,
+        label: t.treeView,
+        desc: t.viewModeShortTree,
+        className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+        icon: <GitBranch size={12} />,
+      },
+      {
+        id: 'schema' as const,
+        label: t.schemaView,
+        desc: t.viewModeShortSchema,
+        className: 'border-purple-500/40 bg-purple-500/10 text-purple-200',
+        icon: <Table size={12} />,
+      },
+    ],
+    [t]
+  );
   const showCompareHint = !xmlA.trim() || !xmlB.trim();
   const lineCoverage = useMemo(() => {
     if (!lineLevelStats.total) return 0;
@@ -1152,6 +1185,35 @@ function AppContent() {
                   totalDiffs={totalNavigableDiffs}
                   onNavigate={handleNavigateToDiff}
                 />
+              </div>
+            </div>
+            <div className="px-4 pb-1">
+              <div className="flex flex-wrap gap-1.5 text-[10px] text-[var(--color-text-secondary)]">
+                {viewModeChips.map((chip) => {
+                  const isActive = activeView === chip.id;
+                  return (
+                    <div
+                      key={chip.id}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`flex items-center gap-1 rounded-full border px-2 py-1 ${chip.className} ${
+                        isActive
+                          ? 'ring-2 ring-[var(--color-accent)]/70 shadow-md shadow-[var(--color-accent)]/20 opacity-100'
+                          : 'opacity-60 hover:opacity-90'
+                      }`}
+                    >
+                      <span className="text-[var(--color-text-primary)]">{chip.icon}</span>
+                      <span className={`font-semibold ${isActive ? 'text-white' : ''}`}>{chip.label}</span>
+                      <span className="text-[var(--color-text-muted)]">—</span>
+                      <span>{chip.desc}</span>
+                      {isActive && (
+                        <span
+                          className="ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <div className="px-4 pb-2">

@@ -51,6 +51,10 @@ export interface Translations {
   inline: string;
   treeView: string;
   schemaView: string;
+  viewModeShortSide: string;
+  viewModeShortInline: string;
+  viewModeShortTree: string;
+  viewModeShortSchema: string;
 
   // Diff Summary
   diffSummary: string;
@@ -361,6 +365,10 @@ export const translations: Record<Language, Translations> = {
     inline: 'Inline',
     treeView: 'Tree View',
     schemaView: 'Schema',
+    viewModeShortSide: 'Left vs Right',
+    viewModeShortInline: 'Merged diff',
+    viewModeShortTree: 'Structure diff',
+    viewModeShortSchema: 'Tables/fields',
 
     // Diff Summary
     diffSummary: 'Diff Summary:',
@@ -670,6 +678,10 @@ export const translations: Record<Language, Translations> = {
     inline: '內聯對比',
     treeView: '樹狀檢視',
     schemaView: 'Schema 檢視',
+    viewModeShortSide: '左右對照',
+    viewModeShortInline: '合併視圖',
+    viewModeShortTree: '結構比對',
+    viewModeShortSchema: '表/欄位',
 
     // Diff Summary
     diffSummary: '差異摘要:',
@@ -980,6 +992,10 @@ export const translations: Record<Language, Translations> = {
     treeView: '树形视图',
     schemaView: 'Schema 视图',
 
+    viewModeShortSide: '\u5de6\u53f3\u5bf9\u7167',
+    viewModeShortInline: '\u5408\u5e76\u89c6\u56fe',
+    viewModeShortTree: '\u7ed3\u6784\u5bf9\u6bd4',
+    viewModeShortSchema: '\u8868/\u5b57\u6bb5',
     // Diff Summary
     diffSummary: '差异摘要:',
     added: '新增',
