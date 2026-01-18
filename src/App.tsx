@@ -1330,12 +1330,16 @@ function AppContent() {
                 compact
               />
               {showOverviewControls && (
-                <details className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                  <summary className="flex items-center gap-2 cursor-pointer list-none">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                <details className="group mt-2 text-xs text-[var(--color-text-secondary)]">
+                  <summary className="flex items-center gap-2 cursor-pointer list-none rounded-full border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-3 py-1.5 text-[10px] font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/60">
+                    <ChevronDown
+                      size={12}
+                      className="text-[var(--color-text-muted)] transition-transform group-open:rotate-180"
+                    />
+                    <span className="uppercase tracking-wide text-[var(--color-text-muted)]">
                       {t.overviewModeLabel}
                     </span>
-                    <span className="text-[10px] text-[var(--color-text-secondary)]">
+                    <span className="text-[var(--color-text-secondary)]">
                       {overviewModeSummary}
                     </span>
                   </summary>
