@@ -150,6 +150,15 @@ export interface Translations {
   helpViewInline: string;
   helpViewTree: string;
   helpViewSchema: string;
+  helpModeGuideTitle: string;
+  helpModeGuideSide: string;
+  helpModeGuideInline: string;
+  helpModeGuideTree: string;
+  helpModeGuideSchema: string;
+  helpCommonMistakesTitle: string;
+  helpCommonMistakeMissingInputs: string;
+  helpCommonMistakeInlineModified: string;
+  helpCommonMistakeSchema: string;
   helpSchemaCustomTitle: string;
   helpSchemaCustomStep1: string;
   helpSchemaCustomStep2: string;
@@ -451,6 +460,15 @@ export const translations: Record<Language, Translations> = {
     helpViewInline: 'Unified diff with additions and removals.',
     helpViewTree: 'Tree diff for structural changes.',
     helpViewSchema: 'Schema view for tables and fields.',
+    helpModeGuideTitle: 'Which view should I use?',
+    helpModeGuideSide: 'Side by Side: best for precise line-by-line checks.',
+    helpModeGuideInline: 'Inline: compact change list (added/removed only).',
+    helpModeGuideTree: 'Tree: structural changes and hierarchy shifts.',
+    helpModeGuideSchema: 'Schema: table/field definitions and metadata changes.',
+    helpCommonMistakesTitle: 'Common misconceptions',
+    helpCommonMistakeMissingInputs: 'Side/Inline require both XML A and B to be present.',
+    helpCommonMistakeInlineModified: 'Inline view does not show "Modified"; it splits into removed + added.',
+    helpCommonMistakeSchema: 'Schema view focuses on structure, not line-level diff.',
     helpSchemaCustomTitle: 'Custom schema template',
     helpSchemaCustomStep1: 'Switch to Schema view and select the Custom preset.',
     helpSchemaCustomStep2: 'Open Custom settings to set table/field tags and name attributes.',
@@ -751,6 +769,15 @@ export const translations: Record<Language, Translations> = {
     helpViewInline: '合併視圖顯示新增與刪除。',
     helpViewTree: '樹狀結構變更更清楚。',
     helpViewSchema: '以表與欄位為主的結構差異檢視。',
+    helpModeGuideTitle: '模式怎麼選',
+    helpModeGuideSide: '並排比對：精準逐行核對。',
+    helpModeGuideInline: '內聯比對：只看新增/刪除的精簡清單。',
+    helpModeGuideTree: '樹狀檢視：結構層級與節點變更。',
+    helpModeGuideSchema: 'Schema 檢視：表/欄位定義與屬性變更。',
+    helpCommonMistakesTitle: '常見誤會',
+    helpCommonMistakeMissingInputs: '並排/內聯需要同時有 XML A 與 B。',
+    helpCommonMistakeInlineModified: '內聯不顯示「修改」，會拆成刪除＋新增。',
+    helpCommonMistakeSchema: 'Schema 只看結構，並非行級差異。',
     helpSchemaCustomTitle: 'Schema 自訂模板',
     helpSchemaCustomStep1: '切換到 Schema 檢視並選擇「自訂」模板。',
     helpSchemaCustomStep2: '點「自訂設定」調整表/欄位標籤與名稱屬性。',
@@ -1051,6 +1078,16 @@ export const translations: Record<Language, Translations> = {
     helpViewInline: '合并视图显示新增与删除。',
     helpViewTree: '树状结构变更更清楚。',
     helpViewSchema: '以表与字段为主的结构差异视图。',
+
+    helpModeGuideTitle: '?????',
+    helpModeGuideSide: '????????????',
+    helpModeGuideInline: '?????????/????????',
+    helpModeGuideTree: '???????????????',
+    helpModeGuideSchema: 'Schema ????/??????????',
+    helpCommonMistakesTitle: '????',
+    helpCommonMistakeMissingInputs: '??/??????? XML A ? B?',
+    helpCommonMistakeInlineModified: '??????????????? + ???',
+    helpCommonMistakeSchema: 'Schema ????????????',
     helpSchemaCustomTitle: 'Schema 自定义模板',
     helpSchemaCustomStep1: '切换到 Schema 视图并选择「自定义」模板。',
     helpSchemaCustomStep2: '点「自定义设置」调整表/字段标签与名称属性。',

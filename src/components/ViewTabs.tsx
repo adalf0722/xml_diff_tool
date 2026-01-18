@@ -18,11 +18,11 @@ interface ViewTabsProps {
 export function ViewTabs({ activeView, onViewChange, compact = false, className = '' }: ViewTabsProps) {
   const { t } = useLanguage();
 
-  const tabs: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'side-by-side', label: t.sideBySide, icon: <Columns size={16} /> },
-    { id: 'inline', label: t.inline, icon: <AlignLeft size={16} /> },
-    { id: 'tree', label: t.treeView, icon: <GitBranch size={16} /> },
-    { id: 'schema', label: t.schemaView, icon: <Table size={16} /> },
+  const tabs: { id: ViewMode; label: string; hint: string; icon: React.ReactNode }[] = [
+    { id: 'side-by-side', label: t.sideBySide, hint: t.helpViewSide, icon: <Columns size={16} /> },
+    { id: 'inline', label: t.inline, hint: t.helpViewInline, icon: <AlignLeft size={16} /> },
+    { id: 'tree', label: t.treeView, hint: t.helpViewTree, icon: <GitBranch size={16} /> },
+    { id: 'schema', label: t.schemaView, hint: t.helpViewSchema, icon: <Table size={16} /> },
   ];
 
   const containerClass = compact
@@ -45,6 +45,8 @@ export function ViewTabs({ activeView, onViewChange, compact = false, className 
         <button
           key={tab.id}
           onClick={() => onViewChange(tab.id)}
+          title={tab.hint}
+          aria-label={`${tab.label} - ${tab.hint}`}
           className={`${tabBaseClass} ${activeView === tab.id ? tabActiveClass : tabInactiveClass}`}
         >
           {tab.icon}

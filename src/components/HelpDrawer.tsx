@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, BookOpen, Layers, FileText, Download, Sparkles, Keyboard, AlertTriangle, SlidersHorizontal } from 'lucide-react';
+import { X, BookOpen, Layers, FileText, Download, Sparkles, Keyboard, AlertTriangle, SlidersHorizontal, Info } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface HelpDrawerProps {
@@ -96,6 +96,43 @@ export function HelpDrawer({
                 <span className="font-semibold text-[var(--color-text-primary)]">{t.schemaView}</span>
                 <span className="ml-2">{t.helpViewSchema}</span>
               </li>
+            </ul>
+          </section>
+
+          <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/60 p-4">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+              <FileText size={16} className="text-[var(--color-accent)]" />
+              <h3 className="text-sm font-semibold">{t.helpModeGuideTitle}</h3>
+            </div>
+            <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+              <li>
+                <span className="font-semibold text-[var(--color-text-primary)]">{t.sideBySide}</span>
+                <span className="ml-2">{t.helpModeGuideSide}</span>
+              </li>
+              <li>
+                <span className="font-semibold text-[var(--color-text-primary)]">{t.inline}</span>
+                <span className="ml-2">{t.helpModeGuideInline}</span>
+              </li>
+              <li>
+                <span className="font-semibold text-[var(--color-text-primary)]">{t.treeView}</span>
+                <span className="ml-2">{t.helpModeGuideTree}</span>
+              </li>
+              <li>
+                <span className="font-semibold text-[var(--color-text-primary)]">{t.schemaView}</span>
+                <span className="ml-2">{t.helpModeGuideSchema}</span>
+              </li>
+            </ul>
+          </section>
+
+          <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/60 p-4">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+              <Info size={16} className="text-[var(--color-accent)]" />
+              <h3 className="text-sm font-semibold">{t.helpCommonMistakesTitle}</h3>
+            </div>
+            <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+              <li>{t.helpCommonMistakeMissingInputs}</li>
+              <li>{t.helpCommonMistakeInlineModified}</li>
+              <li>{t.helpCommonMistakeSchema}</li>
             </ul>
           </section>
 

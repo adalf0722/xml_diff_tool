@@ -26,6 +26,19 @@ A pure frontend XML comparison tool that visually presents differences between t
 - Coverage-based overview modes with chunk list navigation
 - Themes and multi-language UI
 
+## View Mode Guide
+
+- Side by Side: precise line-by-line checks with synced scrolling
+- Inline: compact added/removed list (no "Modified")
+- Tree View: structural changes and hierarchy shifts
+- Schema: table/field definitions and metadata changes
+
+## Common Misconceptions
+
+- Side by Side / Inline require both XML A and XML B to be present
+- Inline view does not show "Modified"; it splits into removed + added
+- Schema view focuses on structure, not line-level diff
+
 ## Large File Notes
 
 - Large inputs default to preview mode on that side.

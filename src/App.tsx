@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowRightLeft, AlertCircle, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Header } from './components/Header';
@@ -354,6 +354,17 @@ function AppContent() {
     if (activeView === 'schema') return t.schemaView;
     return t.sideBySide;
   }, [activeView, t]);
+  const viewHintMap = useMemo(
+    () => ({
+      'side-by-side': t.helpViewSide,
+      inline: t.helpViewInline,
+      tree: t.helpViewTree,
+      schema: t.helpViewSchema,
+    }),
+    [t]
+  );
+  const activeViewHint = viewHintMap[activeView];
+  const showCompareHint = !xmlA.trim() || !xmlB.trim();
   const lineCoverage = useMemo(() => {
     if (!lineLevelStats.total) return 0;
     return (lineLevelStats.added + lineLevelStats.removed + lineLevelStats.modified) / lineLevelStats.total;
@@ -1141,6 +1152,21 @@ function AppContent() {
                   totalDiffs={totalNavigableDiffs}
                   onNavigate={handleNavigateToDiff}
                 />
+              </div>
+            </div>
+            <div className="px-4 pb-2">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]/40 px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                <Info size={14} className="text-[var(--color-accent)]" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                  {t.helpViewsTitle}
+                </span>
+                <span className="font-medium text-[var(--color-text-primary)]">{activeViewLabel}</span>
+                <span className="text-[var(--color-text-secondary)]">{activeViewHint}</span>
+                {showCompareHint && (
+                  <span className="ml-auto text-[10px] font-medium text-amber-300">
+                    {t.enterXmlToCompare}
+                  </span>
+                )}
               </div>
             </div>
             <div className="px-4 pt-1 pb-4">
