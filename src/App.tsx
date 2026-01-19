@@ -278,7 +278,7 @@ function AppContent() {
   const [xmlContentsB, setXmlContentsB] = useState<Map<string, string>>(new Map());
   
   // Web Worker for batch and single file processing
-  const { batchDiff, cancelAll, computeDiff } = useDiffWorker();
+  const { batchDiff, cancelAll, computeDiff, parseXML } = useDiffWorker();
 
   // Single file comparison state
   const [singleFileState, setSingleFileState] = useState<'idle' | 'processing' | 'done'>('idle');
@@ -861,6 +861,7 @@ function AppContent() {
   const pendingDiffRef = useRef(false);
   const lastXmlARef = useRef(xmlA);
   const lastXmlBRef = useRef(xmlB);
+  const singleParseRequestRef = useRef(0);
   
   const runDiff = useCallback(async (inputA: string, inputB: string) => {
     markPerf('diff:start');
@@ -1001,23 +1002,27 @@ function AppContent() {
   ]);
 
   const lastStrictModeRef = useRef(strictXmlMode);
+  const lastSingleStrictModeRef = useRef(strictXmlMode);
 
   useEffect(() => {
-    // Only process if both files have content
-    const hasBothFiles = xmlA.trim().length > 0 && xmlB.trim().length > 0;
-    
+    const hasXmlA = xmlA.trim().length > 0;
+    const hasXmlB = xmlB.trim().length > 0;
+    const hasBothFiles = hasXmlA && hasXmlB;
+
     // Check if content actually changed
     const contentChanged = lastXmlARef.current !== xmlA || lastXmlBRef.current !== xmlB;
     lastXmlARef.current = xmlA;
     lastXmlBRef.current = xmlB;
-    
+
     if (!hasBothFiles) {
+      const strictModeChanged = lastSingleStrictModeRef.current !== strictXmlMode;
+      lastSingleStrictModeRef.current = strictXmlMode;
+      const shouldParseSingle = contentChanged || strictModeChanged;
+
       // Reset to idle if one file is empty (only update if not already idle)
       setSingleFileState(prev => {
         if (prev !== 'idle') {
           setSingleFileProgress(null);
-          setParseResultA({ success: false, root: null, error: null, warnings: [], rawXML: xmlA });
-          setParseResultB({ success: false, root: null, error: null, warnings: [], rawXML: xmlB });
           setDiffResults([]);
           resetLineDiffState();
           return 'idle';
@@ -1026,6 +1031,48 @@ function AppContent() {
       });
       pendingDiffRef.current = false;
       processingRef.current = false;
+
+      if (!shouldParseSingle) return;
+
+      if (!hasXmlA && !hasXmlB) {
+        setParseResultA({ success: false, root: null, error: null, warnings: [], rawXML: xmlA });
+        setParseResultB({ success: false, root: null, error: null, warnings: [], rawXML: xmlB });
+        setViewRecommendation(recommendView({ hasXmlA, hasXmlB }));
+        return;
+      }
+
+      const requestId = ++singleParseRequestRef.current;
+      const targetSide: 'A' | 'B' = hasXmlA ? 'A' : 'B';
+      const xml = hasXmlA ? xmlA : xmlB;
+      const emptyA = { success: false, root: null, error: null, warnings: [], rawXML: xmlA };
+      const emptyB = { success: false, root: null, error: null, warnings: [], rawXML: xmlB };
+
+      void (async () => {
+        try {
+          const result = await parseXML(xml, { strictMode: strictXmlMode });
+          if (singleParseRequestRef.current !== requestId) return;
+          if (targetSide === 'A') {
+            setParseResultA(result);
+            setParseResultB(emptyB);
+          } else {
+            setParseResultB(result);
+            setParseResultA(emptyA);
+          }
+          setViewRecommendation(recommendView({ hasXmlA, hasXmlB }));
+        } catch (error) {
+          if (singleParseRequestRef.current !== requestId) return;
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          const errorResult = { success: false, root: null, error: message, warnings: [], rawXML: xml };
+          if (targetSide === 'A') {
+            setParseResultA(errorResult);
+            setParseResultB(emptyB);
+          } else {
+            setParseResultB(errorResult);
+            setParseResultA(emptyA);
+          }
+          setViewRecommendation(recommendView({ hasXmlA, hasXmlB }));
+        }
+      })();
       return;
     }
 
@@ -1047,7 +1094,7 @@ function AppContent() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [xmlA, xmlB, resetLineDiffState, runDiff]);
+  }, [xmlA, xmlB, resetLineDiffState, runDiff, parseXML, strictXmlMode]);
 
   useEffect(() => {
     if (lastStrictModeRef.current === strictXmlMode) return;
