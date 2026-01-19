@@ -52,7 +52,9 @@ export function XMLInputPanel({
   const { t } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [panelMode, setPanelMode] = useState<'edit' | 'inspect'>('edit');
+  const [panelMode, setPanelMode] = useState<'edit' | 'inspect'>(() =>
+    inspectMode ? 'inspect' : 'edit'
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,7 +73,7 @@ export function XMLInputPanel({
     return index < value.length ? `${preview}\n...` : preview;
   }, [previewChars, previewLines, value]);
 
-  const isInspectMode = panelMode === 'inspect';
+  const isInspectMode = inspectMode === true ? true : panelMode === 'inspect';
   const showOverlay = !value && !isDragging && !isPreview && !isFocused;
   const textareaPlaceholder = showOverlay ? '' : placeholder;
 
@@ -166,8 +168,8 @@ export function XMLInputPanel({
   }, [onInspectModeChange]);
 
   useEffect(() => {
-    if (inspectMode === undefined) return;
-    setPanelMode(inspectMode ? 'inspect' : 'edit');
+    if (inspectMode !== true) return;
+    setPanelMode('inspect');
   }, [inspectMode]);
 
   useEffect(() => {

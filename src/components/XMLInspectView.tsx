@@ -257,6 +257,7 @@ export function XMLInspectView({
   const [highlightLine, setHighlightLine] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchIndex, setSearchIndex] = useState(0);
+  const lastJumpTokenRef = useRef<number | null>(null);
 
   useEffect(() => {
     setCollapsed(new Set());
@@ -546,9 +547,14 @@ export function XMLInspectView({
 
   useEffect(() => {
     if (!jumpTarget) return;
+    if (lastJumpTokenRef.current === jumpTarget.token) return;
     const lineIndex = pathToLineIndex.get(jumpTarget.path);
     if (lineIndex === undefined) return;
-    scrollToLine(lineIndex);
+    lastJumpTokenRef.current = jumpTarget.token;
+    // 先標記高亮，再安排捲動，避免首次渲染時 Virtuoso 還沒就緒
+    setHighlightLine(lineIndex);
+    setPendingLine(lineIndex);
+    requestAnimationFrame(() => scrollToLine(lineIndex));
   }, [jumpTarget?.token, jumpTarget?.path, pathToLineIndex, scrollToLine]);
 
   useEffect(() => {
