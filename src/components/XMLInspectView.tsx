@@ -23,6 +23,7 @@ interface InspectTreeNode {
   name: string;
   lineIndex: number;
   attrsSummary: string | null;
+  path: string;
   children: InspectTreeNode[];
 }
 
@@ -31,6 +32,7 @@ interface InspectTreeItem {
   name: string;
   lineIndex: number;
   attrsSummary: string | null;
+  path: string;
   depth: number;
   hasChildren: boolean;
 }
@@ -114,7 +116,8 @@ function buildFoldRanges(lines: string[]) {
 
 function buildInspectTree(lines: string[]) {
   const roots: InspectTreeNode[] = [];
-  const stack: InspectTreeNode[] = [];
+  const pathToLineIndex = new Map<string, number>();
+  const stack: Array<{ node: InspectTreeNode; childCounts: Record<string, number> }> = [];
   let nodeId = 0;
 
   lines.forEach((line, lineIndex) => {
@@ -123,47 +126,43 @@ function buildInspectTree(lines: string[]) {
       const token = match[0];
       const info = extractTagName(token);
       if (!info) continue;
-      if (info.type === 'open') {
+      if (info.type === 'open' || info.type === 'self') {
+        const parentEntry = stack[stack.length - 1];
+        const counts = parentEntry?.childCounts;
+        const index = counts ? (counts[info.name] ?? 0) : 0;
+        if (counts) counts[info.name] = index + 1;
+        const suffix = index > 0 ? `[${index}]` : '';
+        const parentPath = parentEntry?.node.path ?? '';
+        const path = parentPath ? `${parentPath}/${info.name}${suffix}` : `/${info.name}${suffix}`;
         const node: InspectTreeNode = {
           id: `node-${nodeId++}`,
           name: info.name,
           lineIndex,
           attrsSummary: buildAttrsSummary(token),
+          path,
           children: [],
         };
-        const parent = stack[stack.length - 1];
-        if (parent) {
-          parent.children.push(node);
+        if (!pathToLineIndex.has(path)) {
+          pathToLineIndex.set(path, lineIndex);
+        }
+        if (parentEntry) {
+          parentEntry.node.children.push(node);
         } else {
           roots.push(node);
         }
-        stack.push(node);
-        continue;
-      }
-      if (info.type === 'self') {
-        const node: InspectTreeNode = {
-          id: `node-${nodeId++}`,
-          name: info.name,
-          lineIndex,
-          attrsSummary: buildAttrsSummary(token),
-          children: [],
-        };
-        const parent = stack[stack.length - 1];
-        if (parent) {
-          parent.children.push(node);
-        } else {
-          roots.push(node);
+        if (info.type === 'open') {
+          stack.push({ node, childCounts: {} });
         }
         continue;
       }
-      const matchIndex = [...stack].reverse().findIndex(entry => entry.name === info.name);
+      const matchIndex = [...stack].reverse().findIndex(entry => entry.node.name === info.name);
       if (matchIndex === -1) continue;
       const stackIndex = stack.length - 1 - matchIndex;
       stack.splice(stackIndex, stack.length - stackIndex);
     }
   });
 
-  return roots;
+  return { roots, pathToLineIndex };
 }
 
 function flattenInspectTree(
@@ -174,14 +173,15 @@ function flattenInspectTree(
   const items: InspectTreeItem[] = [];
   for (const node of nodes) {
     const hasChildren = node.children.length > 0;
-    items.push({
-      id: node.id,
-      name: node.name,
-      lineIndex: node.lineIndex,
-      attrsSummary: node.attrsSummary,
-      depth,
-      hasChildren,
-    });
+      items.push({
+        id: node.id,
+        name: node.name,
+        lineIndex: node.lineIndex,
+        attrsSummary: node.attrsSummary,
+        path: node.path,
+        depth,
+        hasChildren,
+      });
     if (hasChildren && !collapsed.has(node.id)) {
       items.push(...flattenInspectTree(node.children, collapsed, depth + 1));
     }
@@ -228,7 +228,13 @@ function buildDisplayItems(
   return items;
 }
 
-export function XMLInspectView({ value }: { value: string }) {
+export function XMLInspectView({
+  value,
+  jumpTarget,
+}: {
+  value: string;
+  jumpTarget?: { path: string; token: number } | null;
+}) {
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const treeVirtuosoRef = useRef<VirtuosoHandle>(null);
@@ -338,7 +344,7 @@ export function XMLInspectView({ value }: { value: string }) {
     setCollapsed(new Set());
   }, []);
 
-  const treeRoots = useMemo(() => buildInspectTree(lines), [lines]);
+  const { roots: treeRoots, pathToLineIndex } = useMemo(() => buildInspectTree(lines), [lines]);
   const treeLineageMap = useMemo(() => buildTreeLineageMap(treeRoots), [treeRoots]);
   const treeItems = useMemo(
     () => flattenInspectTree(treeRoots, treeCollapsed),
@@ -537,6 +543,13 @@ export function XMLInspectView({ value }: { value: string }) {
     }, 2000);
     return () => clearTimeout(timer);
   }, [highlightLine]);
+
+  useEffect(() => {
+    if (!jumpTarget) return;
+    const lineIndex = pathToLineIndex.get(jumpTarget.path);
+    if (lineIndex === undefined) return;
+    scrollToLine(lineIndex);
+  }, [jumpTarget?.token, jumpTarget?.path, pathToLineIndex, scrollToLine]);
 
   useEffect(() => {
     const canvas = minimapCanvasRef.current;

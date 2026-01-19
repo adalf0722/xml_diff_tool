@@ -28,6 +28,13 @@ export interface ParseResult {
 export interface ParseWarning {
   code: 'mixed-content';
   count: number;
+  samples?: ParseWarningSample[];
+}
+
+export interface ParseWarningSample {
+  name: string;
+  path: string;
+  attributes: Record<string, string>;
 }
 
 export type DiffType = 'added' | 'removed' | 'modified' | 'unchanged';
@@ -222,7 +229,8 @@ function parseXML(xmlString: string, strictMode?: boolean): ParseResult {
       };
     }
 
-    const warnings = collectParseWarnings(rootData);
+    const root = convertFastXMLToXMLNode(rootData, '');
+    const warnings = collectParseWarnings(root);
     if (strictMode && warnings.length > 0) {
       return {
         success: false,
@@ -232,8 +240,6 @@ function parseXML(xmlString: string, strictMode?: boolean): ParseResult {
         rawXML: xmlString,
       };
     }
-
-    const root = convertFastXMLToXMLNode(rootData, '');
 
     return {
       success: true,
@@ -253,53 +259,37 @@ function parseXML(xmlString: string, strictMode?: boolean): ParseResult {
   }
 }
 
-function collectParseWarnings(rootData: Record<string, unknown>): ParseWarning[] {
+function collectParseWarnings(root: XMLNode): ParseWarning[] {
   let mixedContentCount = 0;
+  const samples: ParseWarningSample[] = [];
+  const maxSamples = 8;
 
-  const visit = (data: Record<string, unknown>) => {
-    const keys = Object.keys(data);
-    const elementKey = keys.find(
-      k => !k.startsWith('@_') && !k.startsWith('#') && !k.startsWith(':@') && !k.startsWith('?')
-    );
-    if (!elementKey) return;
-    const content = data[elementKey];
-    if (!Array.isArray(content)) return;
-
-    let hasElement = false;
-    let hasText = false;
-
-    for (const child of content) {
-      if (!child || typeof child !== 'object') continue;
-      const childObj = child as Record<string, unknown>;
-      if ('#text' in childObj) {
-        const textVal = String(childObj['#text']).trim();
-        if (textVal) {
-          hasText = true;
-        }
-        continue;
-      }
-      if ('#comment' in childObj || '#cdata' in childObj) {
-        continue;
-      }
-      const childKeys = Object.keys(childObj);
-      const childName = childKeys.find(
-        k => !k.startsWith('@_') && !k.startsWith(':@') && !k.startsWith('?')
+  const visit = (node: XMLNode) => {
+    if (node.nodeType !== 'element') return;
+    const hasElement = node.children.some(child => child.nodeType === 'element');
+    const hasText = Boolean(node.value && node.value.trim()) ||
+      node.children.some(
+        child => child.nodeType === 'text' && Boolean(child.value && child.value.trim())
       );
-      if (childName) {
-        hasElement = true;
-        visit(childObj);
-      }
-    }
 
     if (hasElement && hasText) {
       mixedContentCount += 1;
+      if (samples.length < maxSamples) {
+        samples.push({
+          name: node.name,
+          path: node.path,
+          attributes: node.attributes,
+        });
+      }
     }
+
+    node.children.forEach(visit);
   };
 
-  visit(rootData);
+  visit(root);
 
   if (mixedContentCount <= 0) return [];
-  return [{ code: 'mixed-content', count: mixedContentCount }];
+  return [{ code: 'mixed-content', count: mixedContentCount, samples }];
 }
 
 /**

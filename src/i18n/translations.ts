@@ -50,6 +50,11 @@ export interface Translations {
   xmlStrictMode: string;
   xmlStrictModeDesc: string;
   xmlStrictModeActive: string;
+  xmlWarningViewDetails: string;
+  xmlWarningHideDetails: string;
+  xmlWarningSampleHint: string;
+  xmlWarningNoSamples: string;
+  xmlWarningNoAttributes: string;
 
   // View Tabs
   sideBySide: string;
@@ -377,6 +382,11 @@ export const translations: Record<Language, Translations> = {
     xmlStrictMode: 'Strict mode',
     xmlStrictModeDesc: 'Treat schema warnings as errors',
     xmlStrictModeActive: 'Strict mode is enabled.',
+    xmlWarningViewDetails: 'View locations',
+    xmlWarningHideDetails: 'Hide locations',
+    xmlWarningSampleHint: 'Showing {shown} of {total}',
+    xmlWarningNoSamples: 'No warning locations.',
+    xmlWarningNoAttributes: 'No attributes',
 
     // View Tabs
     sideBySide: 'Side by Side',
@@ -703,6 +713,11 @@ export const translations: Record<Language, Translations> = {
     xmlStrictMode: '嚴格模式',
     xmlStrictModeDesc: '將規範警告視為錯誤',
     xmlStrictModeActive: '嚴格模式已啟用。',
+    xmlWarningViewDetails: '檢視位置',
+    xmlWarningHideDetails: '收起位置',
+    xmlWarningSampleHint: '顯示 {shown}/{total}',
+    xmlWarningNoSamples: '沒有警告位置。',
+    xmlWarningNoAttributes: '無屬性',
 
     // View Tabs
     sideBySide: '並排對比',
@@ -1029,6 +1044,11 @@ export const translations: Record<Language, Translations> = {
     xmlStrictMode: '\u4e25\u683c\u6a21\u5f0f',
     xmlStrictModeDesc: '\u5c06\u89c4\u8303\u8b66\u544a\u89c6\u4e3a\u9519\u8bef',
     xmlStrictModeActive: '\u4e25\u683c\u6a21\u5f0f\u5df2\u542f\u7528\u3002',
+    xmlWarningViewDetails: '\u67e5\u770b\u4f4d\u7f6e',
+    xmlWarningHideDetails: '\u6536\u8d77\u4f4d\u7f6e',
+    xmlWarningSampleHint: '\u663e\u793a {shown}/{total}',
+    xmlWarningNoSamples: '\u6ca1\u6709\u8b66\u544a\u4f4d\u7f6e\u3002',
+    xmlWarningNoAttributes: '\u65e0\u5c5e\u6027',
 
     // View Tabs
     sideBySide: '并排对比',

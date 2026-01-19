@@ -23,10 +23,17 @@ export interface ParseResult {
 export interface ParseWarning {
   code: 'mixed-content';
   count: number;
+  samples?: ParseWarningSample[];
 }
 
 export interface ParseOptions {
   strictMode?: boolean;
+}
+
+export interface ParseWarningSample {
+  name: string;
+  path: string;
+  attributes: Record<string, string>;
 }
 
 /**
@@ -60,7 +67,8 @@ export function parseXML(xmlString: string, options: ParseOptions = {}): ParseRe
       };
     }
 
-    const warnings = collectParseWarnings(doc.documentElement);
+    const root = convertDOMToXMLNode(doc.documentElement, '');
+    const warnings = collectParseWarnings(root);
     if (options.strictMode && warnings.length > 0) {
       return {
         success: false,
@@ -70,9 +78,6 @@ export function parseXML(xmlString: string, options: ParseOptions = {}): ParseRe
         rawXML: xmlString,
       };
     }
-
-    // Convert DOM to our XMLNode structure
-    const root = convertDOMToXMLNode(doc.documentElement, '');
 
     return {
       success: true,
@@ -92,32 +97,37 @@ export function parseXML(xmlString: string, options: ParseOptions = {}): ParseRe
   }
 }
 
-function collectParseWarnings(root: Element): ParseWarning[] {
+function collectParseWarnings(root: XMLNode): ParseWarning[] {
   let mixedContentCount = 0;
+  const samples: ParseWarningSample[] = [];
+  const maxSamples = 8;
 
-  const visit = (node: Element) => {
-    let hasElement = false;
-    let hasText = false;
-    for (const child of Array.from(node.childNodes)) {
-      if (child.nodeType === Node.ELEMENT_NODE) {
-        hasElement = true;
-        visit(child as Element);
-      } else if (child.nodeType === Node.TEXT_NODE) {
-        const text = child.textContent?.trim();
-        if (text) {
-          hasText = true;
-        }
-      }
-    }
+  const visit = (node: XMLNode) => {
+    if (node.nodeType !== 'element') return;
+    const hasElement = node.children.some(child => child.nodeType === 'element');
+    const hasText = Boolean(node.value && node.value.trim()) ||
+      node.children.some(
+        child => child.nodeType === 'text' && Boolean(child.value && child.value.trim())
+      );
+
     if (hasElement && hasText) {
       mixedContentCount += 1;
+      if (samples.length < maxSamples) {
+        samples.push({
+          name: node.name,
+          path: node.path,
+          attributes: node.attributes,
+        });
+      }
     }
+
+    node.children.forEach(visit);
   };
 
   visit(root);
 
   if (mixedContentCount <= 0) return [];
-  return [{ code: 'mixed-content', count: mixedContentCount }];
+  return [{ code: 'mixed-content', count: mixedContentCount, samples }];
 }
 
 /**

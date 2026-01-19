@@ -23,6 +23,8 @@ interface XMLInputPanelProps {
   previewChars?: number;
   onShowFull?: () => void;
   onShowPreview?: () => void;
+  inspectMode?: boolean;
+  inspectJumpTarget?: { path: string; token: number } | null;
   onInspectModeChange?: (isInspect: boolean) => void;
   isPanelFocused?: boolean;
   onToggleFocus?: () => void;
@@ -41,6 +43,8 @@ export function XMLInputPanel({
   previewChars = 2000,
   onShowFull,
   onShowPreview,
+  inspectMode,
+  inspectJumpTarget,
   onInspectModeChange,
   isPanelFocused = false,
   onToggleFocus,
@@ -162,6 +166,11 @@ export function XMLInputPanel({
   }, [onInspectModeChange]);
 
   useEffect(() => {
+    if (inspectMode === undefined) return;
+    setPanelMode(inspectMode ? 'inspect' : 'edit');
+  }, [inspectMode]);
+
+  useEffect(() => {
     return () => {
       onInspectModeChange?.(false);
     };
@@ -256,7 +265,7 @@ export function XMLInputPanel({
         onDrop={handleDrop}
       >
         {isInspectMode ? (
-          <XMLInspectView value={value} />
+          <XMLInspectView value={value} jumpTarget={inspectJumpTarget} />
         ) : isPreview ? (
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-xs text-[var(--color-text-muted)]">

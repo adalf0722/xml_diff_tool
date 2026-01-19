@@ -248,6 +248,9 @@ function AppContent() {
   });
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [strictXmlMode, setStrictXmlMode] = useState(false);
+  const [showWarningDetails, setShowWarningDetails] = useState(false);
+  const [inspectJumpA, setInspectJumpA] = useState<{ path: string; token: number } | null>(null);
+  const [inspectJumpB, setInspectJumpB] = useState<{ path: string; token: number } | null>(null);
 
   // Filter state - which diff types to show (unchanged is always shown, not a filter)
   const [activeFilters, setActiveFilters] = useState<Set<DiffType>>(
@@ -342,20 +345,59 @@ function AppContent() {
   const pendingJumpIndexRef = useRef<number | null>(null);
   
   const hasParseError = Boolean(parseResultA.error || parseResultB.error);
-  const mixedContentCountA = useMemo(
-    () => parseResultA.warnings?.find(warning => warning.code === 'mixed-content')?.count ?? 0,
+  const mixedContentWarningA = useMemo(
+    () => parseResultA.warnings?.find(warning => warning.code === 'mixed-content'),
     [parseResultA.warnings]
   );
-  const mixedContentCountB = useMemo(
-    () => parseResultB.warnings?.find(warning => warning.code === 'mixed-content')?.count ?? 0,
+  const mixedContentWarningB = useMemo(
+    () => parseResultB.warnings?.find(warning => warning.code === 'mixed-content'),
     [parseResultB.warnings]
   );
+  const mixedContentCountA = mixedContentWarningA?.count ?? 0;
+  const mixedContentCountB = mixedContentWarningB?.count ?? 0;
+  const mixedContentSamplesA = mixedContentWarningA?.samples ?? [];
+  const mixedContentSamplesB = mixedContentWarningB?.samples ?? [];
   const hasParseWarnings = mixedContentCountA + mixedContentCountB > 0;
   const showParseWarnings = (hasParseWarnings || strictXmlMode) && (xmlA.trim() || xmlB.trim());
   const parseWarningText = t.xmlWarningMixedContent
     .replace('{countA}', String(mixedContentCountA))
     .replace('{countB}', String(mixedContentCountB));
   const showParseError = hasParseError && singleFileState !== 'processing';
+  const warningGroups = useMemo(
+    () => [
+      {
+        key: 'A',
+        label: t.xmlALabel,
+        count: mixedContentCountA,
+        samples: mixedContentSamplesA,
+      },
+      {
+        key: 'B',
+        label: t.xmlBLabel,
+        count: mixedContentCountB,
+        samples: mixedContentSamplesB,
+      },
+    ],
+    [t, mixedContentCountA, mixedContentCountB, mixedContentSamplesA, mixedContentSamplesB]
+  );
+  const formatWarningAttributes = useCallback(
+    (attributes: Record<string, string>) => {
+      const entries = Object.entries(attributes);
+      if (entries.length === 0) return t.xmlWarningNoAttributes;
+      const preview = entries
+        .slice(0, 2)
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(' ');
+      const suffix = entries.length > 2 ? ` +${entries.length - 2}` : '';
+      return `${preview}${suffix}`;
+    },
+    [t]
+  );
+  useEffect(() => {
+    if (!hasParseWarnings) {
+      setShowWarningDetails(false);
+    }
+  }, [hasParseWarnings]);
   const showSingleFileProgress =
     singleFileState === 'processing' && singleFileProgress?.stage !== 'done';
   const isEmptyInputs = !xmlA.trim() && !xmlB.trim();
@@ -682,6 +724,18 @@ function AppContent() {
 
   const handleToggleFocusB = useCallback(() => {
     setInputFocus(prev => (prev === 'B' ? 'none' : 'B'));
+  }, []);
+
+  const handleWarningJump = useCallback((side: 'A' | 'B', path: string) => {
+    setShowInputPanel(true);
+    setInputFocus(side);
+    if (side === 'A') {
+      setInspectModeA(true);
+      setInspectJumpA({ path, token: Date.now() });
+    } else {
+      setInspectModeB(true);
+      setInspectJumpB({ path, token: Date.now() });
+    }
   }, []);
 
   // Swap XML content
@@ -1134,6 +1188,8 @@ function AppContent() {
                     isPreview={!showFullInputA}
                     onShowFull={() => setShowFullInputAOverride(true)}
                     onShowPreview={() => setShowFullInputAOverride(false)}
+                    inspectMode={inspectModeA}
+                    inspectJumpTarget={inspectJumpA}
                     onInspectModeChange={setInspectModeA}
                     isPanelFocused={inputFocus === 'A'}
                     onToggleFocus={handleToggleFocusA}
@@ -1168,6 +1224,8 @@ function AppContent() {
                     isPreview={!showFullInputB}
                     onShowFull={() => setShowFullInputBOverride(true)}
                     onShowPreview={() => setShowFullInputBOverride(false)}
+                    inspectMode={inspectModeB}
+                    inspectJumpTarget={inspectJumpB}
                     onInspectModeChange={setInspectModeB}
                     isPanelFocused={inputFocus === 'B'}
                     onToggleFocus={handleToggleFocusB}
@@ -1281,23 +1339,85 @@ function AppContent() {
               ) : (
                 <span className="text-amber-100/80">{t.xmlStrictModeActive}</span>
               )}
-              <button
-                type="button"
-                onClick={() => setStrictXmlMode(prev => !prev)}
-                className={`ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
-                  strictXmlMode
-                    ? 'border-amber-300/50 bg-amber-400/20 text-amber-100'
-                    : 'border-amber-300/30 text-amber-200 hover:bg-amber-400/10'
-                }`}
-                title={t.xmlStrictModeDesc}
-                aria-pressed={strictXmlMode}
-              >
-                {t.xmlStrictMode}
-              </button>
+              <div className="ml-auto flex items-center gap-2">
+                {hasParseWarnings && (
+                  <button
+                    type="button"
+                    onClick={() => setShowWarningDetails(prev => !prev)}
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100/90 transition-colors hover:bg-amber-400/10"
+                    aria-expanded={showWarningDetails}
+                  >
+                    <span>{showWarningDetails ? t.xmlWarningHideDetails : t.xmlWarningViewDetails}</span>
+                    <ChevronDown
+                      size={12}
+                      className={`transition-transform ${showWarningDetails ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setStrictXmlMode(prev => !prev)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+                    strictXmlMode
+                      ? 'border-amber-300/50 bg-amber-400/20 text-amber-100'
+                      : 'border-amber-300/30 text-amber-200 hover:bg-amber-400/10'
+                  }`}
+                  title={t.xmlStrictModeDesc}
+                  aria-pressed={strictXmlMode}
+                >
+                  {t.xmlStrictMode}
+                </button>
+              </div>
               <span className="hidden md:inline text-[10px] text-amber-100/70">
                 {t.xmlStrictModeDesc}
               </span>
             </div>
+            {hasParseWarnings && showWarningDetails && (
+              <div className="mt-2 grid gap-3 md:grid-cols-2">
+                {warningGroups.map(group => (
+                  <div
+                    key={group.key}
+                    className="rounded-md border border-amber-400/20 bg-amber-500/5 p-2 text-[10px]"
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-semibold text-amber-100">
+                      <span>{group.label}</span>
+                      <span className="text-amber-100/70">
+                        {t.xmlWarningSampleHint
+                          .replace('{shown}', String(group.samples.length))
+                          .replace('{total}', String(group.count))}
+                      </span>
+                    </div>
+                    {group.samples.length === 0 ? (
+                      <div className="mt-2 text-[10px] text-amber-100/60">
+                        {t.xmlWarningNoSamples}
+                      </div>
+                    ) : (
+                      <ul className="mt-2 space-y-2">
+                        {group.samples.map((sample, index) => (
+                          <li key={`${group.key}-${sample.path}-${index}`}>
+                            <button
+                              type="button"
+                              onClick={() => handleWarningJump(group.key === 'A' ? 'A' : 'B', sample.path)}
+                              className="w-full rounded border border-amber-400/10 bg-amber-500/5 px-2 py-1 text-left transition-colors hover:border-amber-300/40 hover:bg-amber-500/10"
+                            >
+                              <div className="text-[11px] font-semibold text-amber-100">
+                                {sample.name}
+                              </div>
+                              <div className="font-mono text-[10px] text-amber-100/70">
+                                {sample.path}
+                              </div>
+                              <div className="text-[10px] text-amber-200/70">
+                                {formatWarningAttributes(sample.attributes)}
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
