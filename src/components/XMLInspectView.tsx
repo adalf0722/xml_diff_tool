@@ -233,7 +233,7 @@ export function XMLInspectView({
   jumpTarget,
 }: {
   value: string;
-  jumpTarget?: { path: string; token: number } | null;
+  jumpTarget?: { path: string; token: number; column?: number; length?: number } | null;
 }) {
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -255,6 +255,7 @@ export function XMLInspectView({
   const [pendingLine, setPendingLine] = useState<number | null>(null);
   const [pendingTreeLine, setPendingTreeLine] = useState<number | null>(null);
   const [highlightLine, setHighlightLine] = useState<number | null>(null);
+  const [highlightRange, setHighlightRange] = useState<{ lineIndex: number; start: number; end: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchIndex, setSearchIndex] = useState(0);
   const lastJumpTokenRef = useRef<number | null>(null);
@@ -264,6 +265,7 @@ export function XMLInspectView({
     setTreeCollapsed(new Set());
     setSearchQuery('');
     setSearchIndex(0);
+    setHighlightRange(null);
   }, [value]);
 
   const scheduleScrollInfo = useCallback((element: HTMLElement | null) => {
@@ -538,7 +540,10 @@ export function XMLInspectView({
   }, [pendingTreeLine, treeLineIndexToItemIndex]);
 
   useEffect(() => {
-    if (highlightLine === null) return;
+    if (highlightLine === null) {
+      setHighlightRange(null);
+      return;
+    }
     const timer = setTimeout(() => {
       setHighlightLine(null);
     }, 2000);
@@ -551,11 +556,24 @@ export function XMLInspectView({
     const lineIndex = pathToLineIndex.get(jumpTarget.path);
     if (lineIndex === undefined) return;
     lastJumpTokenRef.current = jumpTarget.token;
-    // 先標記高亮，再安排捲動，避免首次渲染時 Virtuoso 還沒就緒
     setHighlightLine(lineIndex);
+    if (jumpTarget.column && jumpTarget.column > 0) {
+      const start = jumpTarget.column - 1;
+      const length = jumpTarget.length && jumpTarget.length > 0 ? jumpTarget.length : 1;
+      setHighlightRange({ lineIndex, start, end: start + length });
+    } else {
+      setHighlightRange(null);
+    }
     setPendingLine(lineIndex);
     requestAnimationFrame(() => scrollToLine(lineIndex));
-  }, [jumpTarget?.token, jumpTarget?.path, pathToLineIndex, scrollToLine]);
+  }, [
+    jumpTarget?.token,
+    jumpTarget?.path,
+    jumpTarget?.column,
+    jumpTarget?.length,
+    pathToLineIndex,
+    scrollToLine,
+  ]);
 
   useEffect(() => {
     const canvas = minimapCanvasRef.current;
@@ -850,6 +868,7 @@ export function XMLInspectView({
                   collapseLabel={t.collapseAll}
                   isHighlighted={highlightLine === item.lineIndex}
                   isMatch={searchMatchSet.has(item.lineIndex)}
+                  highlightRange={highlightRange && highlightRange.lineIndex === item.lineIndex ? highlightRange : null}
                 />
               );
             }}
@@ -896,6 +915,7 @@ function InspectLine({
   collapseLabel,
   isHighlighted,
   isMatch,
+  highlightRange,
 }: {
   lineNumber: number;
   content: string;
@@ -908,7 +928,21 @@ function InspectLine({
   collapseLabel: string;
   isHighlighted: boolean;
   isMatch: boolean;
+  highlightRange?: { lineIndex: number; start: number; end: number } | null;
 }) {
+  const safeContent = content.length > 0 ? content : '\u00A0';
+  const shouldHighlightRange =
+    highlightRange &&
+    highlightRange.start >= 0 &&
+    highlightRange.end > highlightRange.start &&
+    highlightRange.start < safeContent.length;
+  const highlightStart = shouldHighlightRange
+    ? Math.min(highlightRange.start, safeContent.length)
+    : 0;
+  const highlightEnd = shouldHighlightRange
+    ? Math.min(highlightRange.end, safeContent.length)
+    : 0;
+
   return (
     <div
       className={`grid items-start text-[var(--color-text-primary)] transition-colors duration-300 ${
@@ -942,7 +976,17 @@ function InspectLine({
         {lineNumber}
       </span>
       <pre className="px-3 py-0.5 whitespace-pre overflow-hidden text-[var(--color-text-primary)]">
-        {content.length > 0 ? content : '\u00A0'}
+        {shouldHighlightRange ? (
+          <>
+            {safeContent.slice(0, highlightStart)}
+            <span className="rounded-sm bg-amber-300/70 px-0.5 text-amber-950">
+              {safeContent.slice(highlightStart, highlightEnd)}
+            </span>
+            {safeContent.slice(highlightEnd)}
+          </>
+        ) : (
+          safeContent
+        )}
       </pre>
     </div>
   );

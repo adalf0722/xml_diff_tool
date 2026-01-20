@@ -55,6 +55,10 @@ export interface Translations {
   xmlWarningSampleHint: string;
   xmlWarningNoSamples: string;
   xmlWarningNoAttributes: string;
+  xmlWarningLineLabel: string;
+  xmlWarningColumnLabel: string;
+  xmlWarningFieldLabel: string;
+  xmlWarningContextLabel: string;
 
   // View Tabs
   sideBySide: string;
@@ -387,6 +391,10 @@ export const translations: Record<Language, Translations> = {
     xmlWarningSampleHint: 'Showing {shown} of {total}',
     xmlWarningNoSamples: 'No warning locations.',
     xmlWarningNoAttributes: 'No attributes',
+    xmlWarningLineLabel: 'Line',
+    xmlWarningColumnLabel: 'Col',
+    xmlWarningFieldLabel: 'Field',
+    xmlWarningContextLabel: 'Context',
 
     // View Tabs
     sideBySide: 'Side by Side',
@@ -718,6 +726,10 @@ export const translations: Record<Language, Translations> = {
     xmlWarningSampleHint: '顯示 {shown}/{total}',
     xmlWarningNoSamples: '沒有警告位置。',
     xmlWarningNoAttributes: '無屬性',
+    xmlWarningLineLabel: '行號',
+    xmlWarningColumnLabel: '欄號',
+    xmlWarningFieldLabel: '欄位',
+    xmlWarningContextLabel: '前後片段',
 
     // View Tabs
     sideBySide: '並排對比',
@@ -1049,6 +1061,10 @@ export const translations: Record<Language, Translations> = {
     xmlWarningSampleHint: '\u663e\u793a {shown}/{total}',
     xmlWarningNoSamples: '\u6ca1\u6709\u8b66\u544a\u4f4d\u7f6e\u3002',
     xmlWarningNoAttributes: '\u65e0\u5c5e\u6027',
+    xmlWarningLineLabel: '\u884c\u53f7',
+    xmlWarningColumnLabel: '\u5217\u53f7',
+    xmlWarningFieldLabel: '\u5b57\u6bb5',
+    xmlWarningContextLabel: '\u4e0a\u4e0b\u6587',
 
     // View Tabs
     sideBySide: '并排对比',

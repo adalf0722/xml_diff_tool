@@ -34,6 +34,9 @@ export interface ParseWarningSample {
   name: string;
   path: string;
   attributes: Record<string, string>;
+  line?: number;
+  column?: number;
+  text?: string;
 }
 
 /**
@@ -68,7 +71,7 @@ export function parseXML(xmlString: string, options: ParseOptions = {}): ParseRe
     }
 
     const root = convertDOMToXMLNode(doc.documentElement, '');
-    const warnings = collectParseWarnings(root);
+    const warnings = collectParseWarnings(root, xmlString);
     if (options.strictMode && warnings.length > 0) {
       return {
         success: false,
@@ -97,10 +100,18 @@ export function parseXML(xmlString: string, options: ParseOptions = {}): ParseRe
   }
 }
 
-function collectParseWarnings(root: XMLNode): ParseWarning[] {
+type WarningLocation = {
+  path: string;
+  line: number;
+  column: number;
+  text: string;
+};
+
+function collectParseWarnings(root: XMLNode, rawXML: string): ParseWarning[] {
   let mixedContentCount = 0;
   const samples: ParseWarningSample[] = [];
   const maxSamples = 8;
+  const locationMap = collectMixedContentLocations(rawXML, maxSamples);
 
   const visit = (node: XMLNode) => {
     if (node.nodeType !== 'element') return;
@@ -113,10 +124,14 @@ function collectParseWarnings(root: XMLNode): ParseWarning[] {
     if (hasElement && hasText) {
       mixedContentCount += 1;
       if (samples.length < maxSamples) {
+        const location = locationMap.get(node.path);
         samples.push({
           name: node.name,
           path: node.path,
           attributes: node.attributes,
+          line: location?.line,
+          column: location?.column,
+          text: location?.text,
         });
       }
     }
@@ -128,6 +143,182 @@ function collectParseWarnings(root: XMLNode): ParseWarning[] {
 
   if (mixedContentCount <= 0) return [];
   return [{ code: 'mixed-content', count: mixedContentCount, samples }];
+}
+
+function collectMixedContentLocations(rawXML: string, maxSamples: number) {
+  const samples = new Map<string, WarningLocation>();
+  if (!rawXML.trim()) return samples;
+
+  const stack: Array<{ name: string; path: string; childCounts: Record<string, number> }> = [];
+  let line = 1;
+  let column = 1;
+  let i = 0;
+
+  const isWhitespace = (ch: string) => ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
+  const advanceChar = (ch: string) => {
+    if (ch === '\n') {
+      line += 1;
+      column = 1;
+    } else {
+      column += 1;
+    }
+  };
+
+  while (i < rawXML.length) {
+    const ch = rawXML[i];
+    if (ch === '<') {
+      if (rawXML.startsWith('<!--', i)) {
+        for (let j = 0; j < 4 && i < rawXML.length; j += 1) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        while (i < rawXML.length && !rawXML.startsWith('-->', i)) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        for (let j = 0; j < 3 && i < rawXML.length; j += 1) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        continue;
+      }
+      if (rawXML.startsWith('<![CDATA[', i)) {
+        for (let j = 0; j < 9 && i < rawXML.length; j += 1) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        while (i < rawXML.length && !rawXML.startsWith(']]>', i)) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        for (let j = 0; j < 3 && i < rawXML.length; j += 1) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        continue;
+      }
+      if (rawXML.startsWith('<?', i)) {
+        for (let j = 0; j < 2 && i < rawXML.length; j += 1) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        while (i < rawXML.length && !rawXML.startsWith('?>', i)) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        for (let j = 0; j < 2 && i < rawXML.length; j += 1) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        continue;
+      }
+      if (rawXML.startsWith('<!DOCTYPE', i)) {
+        for (let j = 0; j < 9 && i < rawXML.length; j += 1) {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        while (i < rawXML.length && rawXML[i] !== '>') {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        if (i < rawXML.length && rawXML[i] === '>') {
+          advanceChar(rawXML[i]);
+          i += 1;
+        }
+        continue;
+      }
+
+      let token = '';
+      let inQuote: string | null = null;
+      while (i < rawXML.length) {
+        const current = rawXML[i];
+        token += current;
+        if (inQuote) {
+          if (current === inQuote) {
+            inQuote = null;
+          }
+        } else if (current === '"' || current === "'") {
+          inQuote = current;
+        } else if (current === '>') {
+          advanceChar(current);
+          i += 1;
+          break;
+        }
+        advanceChar(current);
+        i += 1;
+      }
+
+      const tagInfo = extractWarningTagInfo(token);
+      if (!tagInfo) continue;
+
+      if (tagInfo.type === 'open' || tagInfo.type === 'self') {
+        const parentEntry = stack[stack.length - 1];
+        const counts = parentEntry?.childCounts;
+        const index = counts ? (counts[tagInfo.name] ?? 0) : 0;
+        if (counts) counts[tagInfo.name] = index + 1;
+        const suffix = index > 0 ? `[${index}]` : '';
+        const parentPath = parentEntry?.path ?? '';
+        const path = parentPath ? `${parentPath}/${tagInfo.name}${suffix}` : `/${tagInfo.name}${suffix}`;
+        if (tagInfo.type === 'open') {
+          stack.push({ name: tagInfo.name, path, childCounts: {} });
+        }
+        continue;
+      }
+
+      const matchIndex = [...stack].reverse().findIndex(entry => entry.name === tagInfo.name);
+      if (matchIndex === -1) continue;
+      const stackIndex = stack.length - 1 - matchIndex;
+      stack.splice(stackIndex, stack.length - stackIndex);
+      continue;
+    }
+
+    let textBuffer = '';
+    let firstHit: { line: number; column: number; index: number } | null = null;
+    while (i < rawXML.length && rawXML[i] !== '<') {
+      const current = rawXML[i];
+      textBuffer += current;
+      if (!firstHit && !isWhitespace(current)) {
+        firstHit = { line, column, index: textBuffer.length - 1 };
+      }
+      advanceChar(current);
+      i += 1;
+    }
+
+    if (firstHit && stack.length > 0 && samples.size < maxSamples) {
+      const currentNode = stack[stack.length - 1];
+      if (!samples.has(currentNode.path)) {
+        const remainder = textBuffer.slice(firstHit.index);
+        const match = remainder.match(/^\S+/);
+        const snippet = match ? match[0] : remainder.trim();
+        samples.set(currentNode.path, {
+          path: currentNode.path,
+          line: firstHit.line,
+          column: firstHit.column,
+          text: snippet.slice(0, 48),
+        });
+      }
+    }
+  }
+
+  return samples;
+}
+
+function extractWarningTagInfo(token: string) {
+  const trimmed = token.trim();
+  if (trimmed.startsWith('<?') || trimmed.startsWith('<!')) {
+    return null;
+  }
+  if (trimmed.startsWith('</')) {
+    const match = trimmed.match(/^<\/\s*([^\s>]+)\s*>/);
+    return match ? { type: 'close' as const, name: match[1] } : null;
+  }
+  const isSelfClosing = trimmed.endsWith('/>');
+  const match = trimmed.match(/^<\s*([^\s/>]+)/);
+  if (!match) return null;
+  return {
+    type: isSelfClosing ? ('self' as const) : ('open' as const),
+    name: match[1],
+  };
 }
 
 /**

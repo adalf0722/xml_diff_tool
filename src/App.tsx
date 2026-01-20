@@ -25,7 +25,7 @@ import { PerfDebugPanel } from './components/PerfDebugPanel';
 import { EmptyStateCard } from './components/EmptyStateCard';
 import { HelpDrawer } from './components/HelpDrawer';
 import type { DiffResult, DiffType, UnifiedDiffLine } from './core/xml-diff';
-import type { ParseResult } from './core/xml-parser';
+import type { ParseResult, ParseWarningSample } from './core/xml-parser';
 import {
   buildSchemaDiff,
   getSchemaPresetConfig,
@@ -88,6 +88,153 @@ const SAMPLE_XML_B = `<?xml version="1.0" encoding="UTF-8"?>
     <price>9.99</price>
   </book>
 </bookstore>`;
+
+type WarningContextLine = {
+  lineNumber: number;
+  content: string;
+  isTarget: boolean;
+  highlightStart?: number;
+  highlightLength?: number;
+};
+
+type WarningSampleMeta = ParseWarningSample & {
+  line?: number;
+  column?: number;
+  field?: string;
+  context?: WarningContextLine[];
+};
+
+type InspectJumpTarget = {
+  path: string;
+  token: number;
+  column?: number;
+  length?: number;
+};
+
+const WARNING_TAG_REGEX = /<[^>]+>/g;
+
+function extractWarningTagName(token: string) {
+  const trimmed = token.trim();
+  if (trimmed.startsWith('<?') || trimmed.startsWith('<!')) {
+    return null;
+  }
+  if (trimmed.startsWith('</')) {
+    const match = trimmed.match(/^<\/\s*([^\s>]+)\s*>/);
+    return match ? { type: 'close' as const, name: match[1] } : null;
+  }
+  const isSelfClosing = trimmed.endsWith('/>');
+  const match = trimmed.match(/^<\s*([^\s/>]+)/);
+  if (!match) return null;
+  return {
+    type: isSelfClosing ? ('self' as const) : ('open' as const),
+    name: match[1],
+  };
+}
+
+function buildWarningPathLineIndex(xml: string) {
+  const pathToLineIndex = new Map<string, number>();
+  if (!xml.trim()) return pathToLineIndex;
+  const lines = xml.split(/\r?\n/);
+  const stack: Array<{ name: string; path: string; childCounts: Record<string, number> }> = [];
+
+  lines.forEach((line, lineIndex) => {
+    const matches = line.matchAll(WARNING_TAG_REGEX);
+    for (const match of matches) {
+      const token = match[0];
+      const info = extractWarningTagName(token);
+      if (!info) continue;
+      if (info.type === 'open' || info.type === 'self') {
+        const parentEntry = stack[stack.length - 1];
+        const counts = parentEntry?.childCounts;
+        const index = counts ? (counts[info.name] ?? 0) : 0;
+        if (counts) counts[info.name] = index + 1;
+        const suffix = index > 0 ? `[${index}]` : '';
+        const parentPath = parentEntry?.path ?? '';
+        const path = parentPath ? `${parentPath}/${info.name}${suffix}` : `/${info.name}${suffix}`;
+        if (!pathToLineIndex.has(path)) {
+          pathToLineIndex.set(path, lineIndex);
+        }
+        if (info.type === 'open') {
+          stack.push({ name: info.name, path, childCounts: {} });
+        }
+        continue;
+      }
+      const matchIndex = [...stack].reverse().findIndex(entry => entry.name === info.name);
+      if (matchIndex === -1) continue;
+      const stackIndex = stack.length - 1 - matchIndex;
+      stack.splice(stackIndex, stack.length - stackIndex);
+    }
+  });
+
+  return pathToLineIndex;
+}
+
+function getWarningFieldLabel(sample: ParseWarningSample) {
+  const keys = Object.keys(sample.attributes);
+  const preferredKey = sample.attributes.name
+    ? 'name'
+    : sample.attributes.id
+      ? 'id'
+      : keys[0];
+  if (!preferredKey) {
+    return sample.name;
+  }
+  return `${preferredKey}="${sample.attributes[preferredKey]}"`;
+}
+
+function buildWarningContextLines(
+  lines: string[],
+  lineIndex: number,
+  radius: number = 1,
+  highlight?: { start: number; length: number }
+): WarningContextLine[] {
+  const start = Math.max(0, lineIndex - radius);
+  const end = Math.min(lines.length - 1, lineIndex + radius);
+  const context: WarningContextLine[] = [];
+  for (let i = start; i <= end; i += 1) {
+    const content = lines[i] ?? '';
+    let highlightStart: number | undefined;
+    let highlightLength: number | undefined;
+    if (highlight && i === lineIndex) {
+      const safeStart = Math.max(0, Math.min(highlight.start, content.length));
+      const safeLength = Math.max(1, Math.min(highlight.length, Math.max(0, content.length - safeStart)));
+      highlightStart = safeStart;
+      highlightLength = safeLength;
+    }
+    context.push({
+      lineNumber: i + 1,
+      content,
+      isTarget: i === lineIndex,
+      highlightStart,
+      highlightLength,
+    });
+  }
+  return context;
+}
+
+function enrichWarningSamples(samples: ParseWarningSample[], rawXML: string): WarningSampleMeta[] {
+  if (samples.length === 0) return [];
+  const lines = rawXML.split(/\r?\n/);
+  const lineMap = buildWarningPathLineIndex(rawXML);
+  return samples.map(sample => {
+    const lineIndex = sample.line ? sample.line - 1 : lineMap.get(sample.path);
+    const column = sample.column;
+    const snippetLength = sample.text ? sample.text.length : 1;
+    const highlight = column
+      ? { start: Math.max(0, column - 1), length: Math.max(1, snippetLength) }
+      : undefined;
+    return {
+      ...sample,
+      line: lineIndex !== undefined ? lineIndex + 1 : sample.line,
+      column,
+      field: getWarningFieldLabel(sample),
+      context:
+        lineIndex !== undefined
+          ? buildWarningContextLines(lines, lineIndex, 1, highlight)
+          : undefined,
+    };
+  });
+}
 
 const LARGE_FILE_CHAR_THRESHOLD = 1_000_000;
 type OverviewMode = 'minimap' | 'hybrid' | 'chunks';
@@ -249,8 +396,8 @@ function AppContent() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [strictXmlMode, setStrictXmlMode] = useState(false);
   const [showWarningDetails, setShowWarningDetails] = useState(false);
-  const [inspectJumpA, setInspectJumpA] = useState<{ path: string; token: number } | null>(null);
-  const [inspectJumpB, setInspectJumpB] = useState<{ path: string; token: number } | null>(null);
+  const [inspectJumpA, setInspectJumpA] = useState<InspectJumpTarget | null>(null);
+  const [inspectJumpB, setInspectJumpB] = useState<InspectJumpTarget | null>(null);
 
   // Filter state - which diff types to show (unchanged is always shown, not a filter)
   const [activeFilters, setActiveFilters] = useState<Set<DiffType>>(
@@ -357,6 +504,14 @@ function AppContent() {
   const mixedContentCountB = mixedContentWarningB?.count ?? 0;
   const mixedContentSamplesA = mixedContentWarningA?.samples ?? [];
   const mixedContentSamplesB = mixedContentWarningB?.samples ?? [];
+  const warningSamplesA = useMemo(
+    () => enrichWarningSamples(mixedContentSamplesA, parseResultA.rawXML),
+    [mixedContentSamplesA, parseResultA.rawXML]
+  );
+  const warningSamplesB = useMemo(
+    () => enrichWarningSamples(mixedContentSamplesB, parseResultB.rawXML),
+    [mixedContentSamplesB, parseResultB.rawXML]
+  );
   const hasParseWarnings = mixedContentCountA + mixedContentCountB > 0;
   const showParseWarnings = (hasParseWarnings || strictXmlMode) && (xmlA.trim() || xmlB.trim());
   const parseWarningText = t.xmlWarningMixedContent
@@ -369,16 +524,16 @@ function AppContent() {
         key: 'A',
         label: t.xmlALabel,
         count: mixedContentCountA,
-        samples: mixedContentSamplesA,
+        samples: warningSamplesA,
       },
       {
         key: 'B',
         label: t.xmlBLabel,
         count: mixedContentCountB,
-        samples: mixedContentSamplesB,
+        samples: warningSamplesB,
       },
     ],
-    [t, mixedContentCountA, mixedContentCountB, mixedContentSamplesA, mixedContentSamplesB]
+    [t, mixedContentCountA, mixedContentCountB, warningSamplesA, warningSamplesB]
   );
   const formatWarningAttributes = useCallback(
     (attributes: Record<string, string>) => {
@@ -726,15 +881,16 @@ function AppContent() {
     setInputFocus(prev => (prev === 'B' ? 'none' : 'B'));
   }, []);
 
-  const handleWarningJump = useCallback((side: 'A' | 'B', path: string) => {
+  const handleWarningJump = useCallback((side: 'A' | 'B', sample: WarningSampleMeta) => {
     setShowInputPanel(true);
     setInputFocus(side);
+    const length = sample.text ? sample.text.length : sample.column ? 1 : undefined;
     if (side === 'A') {
       setInspectModeA(true);
-      setInspectJumpA({ path, token: Date.now() });
+      setInspectJumpA({ path: sample.path, token: Date.now(), column: sample.column, length });
     } else {
       setInspectModeB(true);
-      setInspectJumpB({ path, token: Date.now() });
+      setInspectJumpB({ path: sample.path, token: Date.now(), column: sample.column, length });
     }
   }, []);
 
@@ -1444,11 +1600,24 @@ function AppContent() {
                           <li key={`${group.key}-${sample.path}-${index}`}>
                             <button
                               type="button"
-                              onClick={() => handleWarningJump(group.key === 'A' ? 'A' : 'B', sample.path)}
+                              onClick={() => handleWarningJump(group.key === 'A' ? 'A' : 'B', sample)}
                               className="w-full rounded border border-amber-400/10 bg-amber-500/5 px-2 py-1 text-left transition-colors hover:border-amber-300/40 hover:bg-amber-500/10"
                             >
                               <div className="text-[11px] font-semibold text-amber-100">
                                 {sample.name}
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-amber-100/80">
+                                <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-1.5 py-0.5">
+                                  {t.xmlWarningLineLabel}: {sample.line ?? '--'}
+                                </span>
+                                {sample.column ? (
+                                  <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-1.5 py-0.5">
+                                    {t.xmlWarningColumnLabel}: {sample.column}
+                                  </span>
+                                ) : null}
+                                <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-1.5 py-0.5">
+                                  {t.xmlWarningFieldLabel}: {sample.field ?? sample.name}
+                                </span>
                               </div>
                               <div className="font-mono text-[10px] text-amber-100/70">
                                 {sample.path}
@@ -1456,6 +1625,47 @@ function AppContent() {
                               <div className="text-[10px] text-amber-200/70">
                                 {formatWarningAttributes(sample.attributes)}
                               </div>
+                              {sample.context && sample.context.length > 0 && (
+                                <div className="mt-2 rounded-md border border-amber-400/20 bg-amber-500/10 p-2">
+                                  <div className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-amber-100/70">
+                                    {t.xmlWarningContextLabel}
+                                  </div>
+                                  <div className="space-y-1 font-mono text-[10px] text-amber-100/70">
+                                    {sample.context.map((line) => (
+                                      <div
+                                        key={`${sample.path}-${line.lineNumber}`}
+                                        className={`flex gap-2 rounded px-1 py-0.5 ${
+                                          line.isTarget
+                                            ? 'bg-amber-400/20 text-amber-100'
+                                            : 'text-amber-100/70'
+                                        }`}
+                                      >
+                                        <span className="w-10 text-right text-amber-200/70">
+                                          {line.lineNumber}
+                                        </span>
+                                        <span className="flex-1 whitespace-pre-wrap break-all">
+                                          {line.highlightStart !== undefined && line.highlightLength !== undefined ? (
+                                            <>
+                                              {(line.content || ' ').slice(0, line.highlightStart)}
+                                              <span className="rounded-sm bg-amber-300/60 px-0.5 text-amber-900">
+                                                {(line.content || ' ').slice(
+                                                  line.highlightStart,
+                                                  line.highlightStart + line.highlightLength
+                                                )}
+                                              </span>
+                                              {(line.content || ' ').slice(
+                                                line.highlightStart + line.highlightLength
+                                              )}
+                                            </>
+                                          ) : (
+                                            line.content || ' '
+                                          )}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </button>
                           </li>
                         ))}
