@@ -233,7 +233,7 @@ export function XMLInspectView({
   jumpTarget,
 }: {
   value: string;
-  jumpTarget?: { path: string; token: number; column?: number; length?: number } | null;
+  jumpTarget?: { path: string; token: number; line?: number; column?: number; length?: number } | null;
 }) {
   const { t } = useLanguage();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -259,6 +259,8 @@ export function XMLInspectView({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchIndex, setSearchIndex] = useState(0);
   const lastJumpTokenRef = useRef<number | null>(null);
+  const debugJump = typeof window !== 'undefined' && Boolean((window as any).__XML_DIFF_JUMP_DEBUG__);
+
 
   useEffect(() => {
     setCollapsed(new Set());
@@ -446,7 +448,7 @@ export function XMLInspectView({
   }, [scrollInfo]);
   const minimapWidth = useMemo(() => (lines.length <= 400 ? 12 : 18), [lines.length]);
 
-  const scrollToLine = useCallback((lineIndex: number) => {
+  const scrollToLine = useCallback((lineIndex: number, behavior: 'auto' | 'smooth' = 'smooth') => {
     const toExpand: number[] = [];
     foldRanges.forEach((end, start) => {
       if (start < lineIndex && lineIndex <= end && collapsed.has(start)) {
@@ -474,16 +476,48 @@ export function XMLInspectView({
         return next;
       });
       setPendingLine(lineIndex);
+      if (debugJump) {
+        console.info('[inspect-jump] expand-fold', { lineIndex: lineIndex + 1, toExpand });
+      }
       return;
     }
     const itemIndex = lineIndexToItemIndex.get(lineIndex);
-    if (itemIndex === undefined) return;
-    virtuosoRef.current?.scrollToIndex({ index: itemIndex, align: 'center', behavior: 'smooth' });
+    if (itemIndex === undefined) {
+      const scroller = scrollerRef.current;
+      if (scroller) {
+        const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        const ratio = lines.length > 1 ? lineIndex / (lines.length - 1) : 0;
+        scroller.scrollTop = Math.max(0, Math.min(maxScroll, Math.round(ratio * maxScroll)));
+        if (debugJump) {
+          console.info('[inspect-jump] fallback-scrollTop', {
+            lineIndex: lineIndex + 1,
+            maxScroll,
+            ratio,
+            scrollTop: scroller.scrollTop,
+          });
+        }
+      }
+      return;
+    }
+    virtuosoRef.current?.scrollToIndex({ index: itemIndex, align: 'center', behavior });
+    if (behavior === 'auto') {
+      const scroller = scrollerRef.current;
+      if (scroller) {
+        const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        const ratio = lines.length > 1 ? lineIndex / (lines.length - 1) : 0;
+        scroller.scrollTop = Math.max(0, Math.min(maxScroll, Math.round(ratio * maxScroll)));
+      }
+    }
     setHighlightLine(lineIndex);
+    if (debugJump) {
+      console.info('[inspect-jump] scrollToIndex', { lineIndex: lineIndex + 1, itemIndex, behavior });
+    }
   }, [
     collapsed,
+    debugJump,
     foldRanges,
     lineIndexToItemIndex,
+    lines.length,
     treeLineIndexToItemIndex,
     treeLineageMap,
   ]);
@@ -553,24 +587,96 @@ export function XMLInspectView({
   useEffect(() => {
     if (!jumpTarget) return;
     if (lastJumpTokenRef.current === jumpTarget.token) return;
-    const lineIndex = pathToLineIndex.get(jumpTarget.path);
-    if (lineIndex === undefined) return;
-    lastJumpTokenRef.current = jumpTarget.token;
-    setHighlightLine(lineIndex);
-    if (jumpTarget.column && jumpTarget.column > 0) {
-      const start = jumpTarget.column - 1;
-      const length = jumpTarget.length && jumpTarget.length > 0 ? jumpTarget.length : 1;
-      setHighlightRange({ lineIndex, start, end: start + length });
-    } else {
-      setHighlightRange(null);
-    }
-    setPendingLine(lineIndex);
-    requestAnimationFrame(() => scrollToLine(lineIndex));
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 12;
+
+    const resolveLineIndex = () => {
+      let lineIndex = jumpTarget.line ? jumpTarget.line - 1 : undefined;
+      if (lineIndex === undefined) {
+        lineIndex = pathToLineIndex.get(jumpTarget.path);
+      }
+      if (lineIndex === undefined && jumpTarget.line) {
+        const fallbackIndex = jumpTarget.line - 1;
+        if (fallbackIndex >= 0 && fallbackIndex < lines.length) {
+          lineIndex = fallbackIndex;
+        }
+      }
+      return lineIndex;
+    };
+
+    const tryJump = () => {
+      if (cancelled) return;
+      const lineIndex = resolveLineIndex();
+      if (lineIndex === undefined) {
+        if (debugJump) {
+          console.info('[inspect-jump] no-line', { path: jumpTarget.path, line: jumpTarget.line, token: jumpTarget.token });
+        }
+        return;
+      }
+      const scrollerReady = Boolean(scrollerRef.current && scrollerRef.current.clientHeight > 0);
+      const listReady = Boolean(virtuosoRef.current) && items.length > 0;
+
+      if (debugJump) {
+        console.info('[inspect-jump] attempt', {
+          attempt: attempts + 1,
+          lineIndex: lineIndex + 1,
+          path: jumpTarget.path,
+          scrollerReady,
+          listReady,
+          items: items.length,
+        });
+      }
+
+      if (!scrollerReady || !listReady) {
+        attempts += 1;
+        if (attempts <= maxAttempts) {
+          window.setTimeout(tryJump, 120);
+        }
+        return;
+      }
+
+      lastJumpTokenRef.current = jumpTarget.token;
+      setHighlightLine(lineIndex);
+      if (jumpTarget.column && jumpTarget.column > 0) {
+        const start = jumpTarget.column - 1;
+        const length = jumpTarget.length && jumpTarget.length > 0 ? jumpTarget.length : 1;
+        setHighlightRange({ lineIndex, start, end: start + length });
+      } else {
+        setHighlightRange(null);
+      }
+      setPendingLine(lineIndex);
+      scrollToLine(lineIndex, 'auto');
+
+      const followUps = [140, 320, 640];
+      followUps.forEach(delay => {
+        window.setTimeout(() => {
+          scrollToLine(lineIndex, 'auto');
+          if (debugJump) {
+            console.info('[inspect-jump] followup-scroll', { lineIndex: lineIndex + 1, delay });
+          }
+        }, delay);
+      });
+
+      if (debugJump) {
+        console.info('[inspect-jump] scroll', { lineIndex: lineIndex + 1, column: jumpTarget.column, length: jumpTarget.length });
+      }
+    };
+
+    tryJump();
+    return () => {
+      cancelled = true;
+    };
   }, [
     jumpTarget?.token,
     jumpTarget?.path,
+    jumpTarget?.line,
     jumpTarget?.column,
     jumpTarget?.length,
+    debugJump,
+    items.length,
+    lines.length,
     pathToLineIndex,
     scrollToLine,
   ]);

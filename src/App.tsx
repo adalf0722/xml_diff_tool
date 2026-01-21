@@ -107,6 +107,7 @@ type WarningSampleMeta = ParseWarningSample & {
 type InspectJumpTarget = {
   path: string;
   token: number;
+  line?: number;
   column?: number;
   length?: number;
 };
@@ -885,12 +886,22 @@ function AppContent() {
     setShowInputPanel(true);
     setInputFocus(side);
     const length = sample.text ? sample.text.length : sample.column ? 1 : undefined;
+    const targetLine = sample.line ?? sample.context?.find(line => line.isTarget)?.lineNumber;
+    if (typeof window !== 'undefined' && (window as any).__XML_DIFF_JUMP_DEBUG__) {
+      console.info('[inspect-jump] click', {
+        side,
+        path: sample.path,
+        line: targetLine,
+        column: sample.column,
+        length,
+      });
+    }
     if (side === 'A') {
       setInspectModeA(true);
-      setInspectJumpA({ path: sample.path, token: Date.now(), column: sample.column, length });
+      setInspectJumpA({ path: sample.path, token: Date.now(), line: targetLine, column: sample.column, length });
     } else {
       setInspectModeB(true);
-      setInspectJumpB({ path: sample.path, token: Date.now(), column: sample.column, length });
+      setInspectJumpB({ path: sample.path, token: Date.now(), line: targetLine, column: sample.column, length });
     }
   }, []);
 

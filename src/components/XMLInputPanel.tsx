@@ -24,7 +24,7 @@ interface XMLInputPanelProps {
   onShowFull?: () => void;
   onShowPreview?: () => void;
   inspectMode?: boolean;
-  inspectJumpTarget?: { path: string; token: number; column?: number; length?: number } | null;
+  inspectJumpTarget?: { path: string; token: number; line?: number; column?: number; length?: number } | null;
   onInspectModeChange?: (isInspect: boolean) => void;
   isPanelFocused?: boolean;
   onToggleFocus?: () => void;
