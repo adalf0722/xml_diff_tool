@@ -14,7 +14,10 @@ A pure frontend XML comparison tool that visually presents differences between t
 
 - Single File and Batch Compare modes
 - Four view modes: Side by Side, Inline (Unified Diff), Tree View, and Schema
+- Mode picker shows short labels with per-mode recommendations (Side = left/right, Inline = unified, Tree = structure, Schema = table/field)
 - Schema view with table/field diff, presets (Struct/Entry, XSD, Table/Column), and custom templates
+- Validation warnings with strict mode toggle; click warning jumps to the offending lines/fields (also works for single-file parse)
+- Inspect/Parse mode with precise line/field jump and contextual snippet; staged scrolling for large files
 - Large file mode
   - Per-side preview for large inputs
   - Optional full rendering toggle
@@ -32,6 +35,12 @@ A pure frontend XML comparison tool that visually presents differences between t
 - Inline: compact added/removed list (no "Modified")
 - Tree View: structural changes and hierarchy shifts
 - Schema: table/field definitions and metadata changes
+
+## Validation & Inspect
+
+- Warnings: catch text outside tags, illegal characters, and malformed nodes; “Strict mode” enforces hard validation.
+- Jump & highlight: clicking a warning expands Inspect mode, scrolls to the exact lines/fields, and highlights the snippet (works in diff and single-file).
+- Large files: jump uses staged scrolling to stay accurate in large-file mode.
 
 ## Common Misconceptions
 
