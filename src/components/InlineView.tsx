@@ -71,6 +71,9 @@ export function InlineView({
   const scrollRafRef = useRef<number | null>(null);
   const [expandedRanges, setExpandedRanges] = useState<Array<{ start: number; end: number }>>([]);
   const expandPreviewCount = 50;
+  void progressiveRender;
+  void initialRenderCount;
+  void renderBatchSize;
   const scheduleScrollInfo = useCallback((element: HTMLElement | null) => {
     if (!element) return;
     scrollInfoRef.current = {
@@ -204,52 +207,7 @@ export function InlineView({
     setExpandedRanges([]);
   }, [groupedLines.length]);
 
-  const totalLines = displayItems.length;
-  const [visibleCount, setVisibleCount] = useState(() => {
-    if (!progressiveRender) return totalLines;
-    return Math.min(initialRenderCount, totalLines);
-  });
-  const [isRendering, setIsRendering] = useState(false);
-
-  useEffect(() => {
-    if (!progressiveRender) {
-      setVisibleCount(totalLines);
-      setIsRendering(false);
-      return;
-    }
-
-    let cancelled = false;
-    const initialCount = Math.min(initialRenderCount, totalLines);
-    setVisibleCount(initialCount);
-    setIsRendering(initialCount < totalLines);
-
-    let current = initialCount;
-    const step = () => {
-      if (cancelled) return;
-      current = Math.min(current + renderBatchSize, totalLines);
-      setVisibleCount(current);
-      setIsRendering(current < totalLines);
-      if (current < totalLines) {
-        requestAnimationFrame(step);
-      }
-    };
-
-    if (initialCount < totalLines) {
-      requestAnimationFrame(step);
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [progressiveRender, totalLines, initialRenderCount, renderBatchSize]);
-
-  const visibleItems = useMemo(() => {
-    return displayItems.slice(0, visibleCount);
-  }, [displayItems, visibleCount]);
-
-  const useVirtualization = true;
-  const renderItems = useVirtualization ? displayItems : visibleItems;
-  const showRendering = progressiveRender && isRendering && !useVirtualization;
+  const renderItems = displayItems;
 
   const diffToDisplayIndex = useMemo(() => {
     const map = new Map<number, number>();
@@ -471,20 +429,6 @@ export function InlineView({
   return (
     <div className="flex h-full flex-col md:flex-row">
       <div className="relative flex-1 min-h-0 font-mono text-sm">
-        {showRendering && totalLines > 0 && (
-          <div className="absolute right-3 top-2 z-10 rounded-full border border-[var(--color-diff-modified-border)] bg-[var(--color-diff-modified-bg)] px-3 py-1 text-xs font-semibold text-[var(--color-diff-modified-text)] shadow-sm pointer-events-none flex items-center gap-2">
-            <span className="absolute inset-0 rounded-full bg-[var(--color-diff-modified-bg)] opacity-70 animate-pulse" />
-            <span
-              className="h-2 w-2 rounded-full bg-[var(--color-diff-modified-border)]"
-              style={{ boxShadow: '0 0 8px var(--color-diff-modified-border)' }}
-            />
-            <span className="relative">
-              {t.renderingLines
-                .replace('{current}', visibleCount.toLocaleString())
-                .replace('{total}', totalLines.toLocaleString())}
-            </span>
-          </div>
-        )}
         {showOverviewBar && (
           <DiffOverviewBar
             totalLines={groupedLines.length}

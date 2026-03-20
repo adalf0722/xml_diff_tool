@@ -96,6 +96,11 @@ export function useDiffWorker() {
   const [isReady, setIsReady] = useState(false);
   const requestIdCounter = useRef(0);
 
+  const cancelAll = useCallback((reason = 'Request cancelled') => {
+    pendingRequests.current.forEach((pending) => pending.reject(new Error(reason)));
+    pendingRequests.current.clear();
+  }, []);
+
   // Initialize worker
   useEffect(() => {
     const worker = new Worker(
@@ -141,22 +146,19 @@ export function useDiffWorker() {
 
     worker.onerror = (error) => {
       console.error('Worker error:', error);
-      // Reject all pending requests
-      for (const [id, pending] of pendingRequests.current.entries()) {
-        pending.reject(new Error(error.message || 'Worker error'));
-        pendingRequests.current.delete(id);
-      }
+      cancelAll(error.message || 'Worker error');
     };
 
     workerRef.current = worker;
     setIsReady(true);
 
     return () => {
+      cancelAll('Request cancelled');
       worker.terminate();
       workerRef.current = null;
       setIsReady(false);
     };
-  }, []);
+  }, [cancelAll]);
 
   // Generate unique request ID
   const generateId = useCallback(() => {
@@ -219,14 +221,6 @@ export function useDiffWorker() {
   ): Promise<BatchCompletePayload> => {
     return sendRequest<BatchCompletePayload>('batch-diff', { files }, onProgress as (progress: BatchProgress | SingleDiffProgress) => void);
   }, [sendRequest]);
-
-  // Cancel all pending requests
-  const cancelAll = useCallback(() => {
-    for (const [id, pending] of pendingRequests.current.entries()) {
-      pending.reject(new Error('Request cancelled'));
-      pendingRequests.current.delete(id);
-    }
-  }, []);
 
   return {
     isReady,

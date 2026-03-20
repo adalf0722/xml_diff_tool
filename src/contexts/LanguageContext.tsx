@@ -24,6 +24,10 @@ interface LanguageProviderProps {
 
 export function LanguageProvider({ children }: LanguageProviderProps) {
   const [language, setLanguageState] = useState<Language>(() => {
+    if (typeof window === 'undefined') {
+      return defaultLanguage;
+    }
+
     // Check localStorage first
     const saved = localStorage.getItem('xmldiff-language') as Language;
     if (saved && translations[saved]) {
