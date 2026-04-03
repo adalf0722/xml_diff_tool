@@ -379,6 +379,7 @@ function AppContent() {
   // View state
   const [activeView, setActiveView] = useState<ViewMode>('side-by-side');
   const [showInputPanel, setShowInputPanel] = useState(true);
+  const [forceShowEditors, setForceShowEditors] = useState(false);
   const [inputFocus, setInputFocus] = useState<'none' | 'A' | 'B'>('none');
   const [inspectModeA, setInspectModeA] = useState(false);
   const [inspectModeB, setInspectModeB] = useState(false);
@@ -557,7 +558,7 @@ function AppContent() {
   const showSingleFileProgress =
     singleFileState === 'processing' && singleFileProgress?.stage !== 'done';
   const isEmptyInputs = !xmlA.trim() && !xmlB.trim();
-  const showEmptyState = appMode === 'single' && isEmptyInputs && !showSingleFileProgress;
+  const showEmptyState = appMode === 'single' && isEmptyInputs && !showSingleFileProgress && !forceShowEditors;
   const isInputFocused = inputFocus !== 'none';
   const isInspectModeActive = inspectModeA || inspectModeB;
   const inputPanelHeightClass = isInputFocused
@@ -915,11 +916,13 @@ function AppContent() {
 
   const handleXmlAChange = useCallback((value: string) => {
     inputPanelEditedARef.current = true;
+    setForceShowEditors(true);
     setXmlA(value);
   }, []);
 
   const handleXmlBChange = useCallback((value: string) => {
     inputPanelEditedBRef.current = true;
+    setForceShowEditors(true);
     setXmlB(value);
   }, []);
 
@@ -934,6 +937,7 @@ function AppContent() {
   const handleUseSample = useCallback(() => {
     inputPanelEditedARef.current = true;
     inputPanelEditedBRef.current = true;
+    setForceShowEditors(false);
     setXmlA(SAMPLE_XML_A);
     setXmlB(SAMPLE_XML_B);
     setShowInputPanel(true);
@@ -945,12 +949,19 @@ function AppContent() {
 
   const handleXmlAUpload = useCallback(() => {
     if (typeof window === 'undefined') return;
+    setForceShowEditors(true);
     setOverviewModePref(normalizeOverviewModePref(localStorage.getItem(OVERVIEW_MODE_STORAGE_KEY)));
   }, []);
 
   const handleXmlBUpload = useCallback(() => {
     if (typeof window === 'undefined') return;
+    setForceShowEditors(true);
     setOverviewModePref(normalizeOverviewModePref(localStorage.getItem(OVERVIEW_MODE_STORAGE_KEY)));
+  }, []);
+
+  const handleStartEditing = useCallback(() => {
+    setForceShowEditors(true);
+    setShowInputPanel(true);
   }, []);
 
   // Handle batch folder selection
@@ -1328,7 +1339,7 @@ function AppContent() {
   }, [isLargeInputB]);
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--color-bg-primary)]">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-[var(--color-bg-primary)]">
       {/* Header */}
       <Header
         mode={appMode}
@@ -1337,7 +1348,8 @@ function AppContent() {
       />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`relative flex flex-1 flex-col ${showEmptyState ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/[0.02] to-transparent" />
         {/* Batch Mode UI */}
         {appMode === 'batch' && (
           <div className="flex-1 overflow-auto p-6">
@@ -1385,7 +1397,7 @@ function AppContent() {
         )}
 
         {/* Input panels (collapsible) */}
-        {showInputPanel && (
+        {showInputPanel && !showEmptyState && (
           <div className="flex-shrink-0 border-b border-[var(--color-border)]">
             <div className={`flex ${inputPanelHeightClass} transition-[height] duration-300`}>
               {/* XML A Input */}
@@ -1451,6 +1463,7 @@ function AppContent() {
         )}
 
         {/* Toggle input panel button */}
+        {!showEmptyState && (
         <div className="relative z-10 bg-[var(--color-bg-primary)] border-y border-[var(--color-border)] shadow-sm">
           <button
             onClick={handleToggleInput}
@@ -1460,10 +1473,15 @@ function AppContent() {
             <span>{showInputPanel ? t.collapseInput : t.expandInput}</span>
           </button>
         </div>
+        )}
 
         {showEmptyState && (
-          <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-primary)] px-4 py-6">
-            <EmptyStateCard onUseSample={handleUseSample} onOpenHelp={handleOpenHelp} />
+          <div className="flex flex-1 items-stretch bg-transparent px-4 py-4 md:px-6 md:py-5">
+            <EmptyStateCard
+              onUseSample={handleUseSample}
+              onStartEditing={handleStartEditing}
+              onOpenHelp={handleOpenHelp}
+            />
           </div>
         )}
 

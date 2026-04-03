@@ -210,6 +210,7 @@ export interface Translations {
   emptyStep2: string;
   emptyStep3: string;
   emptyUseSample: string;
+  emptyStartNow: string;
   emptyOpenHelp: string;
   emptyDropHint: string;
   emptyPrivacyNote: string;
@@ -546,6 +547,7 @@ export const translations: Record<Language, Translations> = {
     emptyStep2: 'Choose the view that fits your task.',
     emptyStep3: 'Review changes and export a report.',
     emptyUseSample: 'Use sample XML',
+    emptyStartNow: 'Start editing XML',
     emptyOpenHelp: 'Open help',
     emptyDropHint: 'Drag & drop XML files here',
     emptyPrivacyNote: 'All processing stays in your browser.',
@@ -881,6 +883,7 @@ export const translations: Record<Language, Translations> = {
     emptyStep2: '選擇最適合的檢視模式。',
     emptyStep3: '檢視差異並輸出報告。',
     emptyUseSample: '使用範例 XML',
+    emptyStartNow: '開始貼上 XML',
     emptyOpenHelp: '開啟說明',
     emptyDropHint: '拖拉 XML 檔案到此',
     emptyPrivacyNote: '所有處理皆在本機瀏覽器完成。',
@@ -1217,6 +1220,7 @@ export const translations: Record<Language, Translations> = {
     emptyStep2: '选择最适合的视图模式。',
     emptyStep3: '查看差异并导出报告。',
     emptyUseSample: '使用示例 XML',
+    emptyStartNow: '开始粘贴 XML',
     emptyOpenHelp: '打开说明',
     emptyDropHint: '拖拽 XML 文件到此',
     emptyPrivacyNote: '所有处理均在本地浏览器完成。',

@@ -72,33 +72,40 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
   };
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-[var(--color-bg-primary)] border-b border-[var(--color-border)]">
+    <header className="relative z-40 border-b border-white/8 bg-[linear-gradient(180deg,rgba(11,14,20,0.92),rgba(11,14,20,0.8))] px-4 py-4 backdrop-blur-xl sm:px-6">
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/12 to-transparent" />
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
       {/* Logo & Title */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-          <Code2 size={22} className="text-white" />
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#6d5dfc,#8b5cf6_58%,#22d3ee)] shadow-[0_16px_40px_rgba(109,93,252,0.32)] ring-1 ring-white/20">
+            <Code2 size={22} className="text-white" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-xl font-bold tracking-[-0.03em] text-[var(--color-text-primary)]">
+                {t.appTitle}
+              </h1>
+              <span className="hidden rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-hover)] sm:inline-flex">
+                XML
+              </span>
+            </div>
+            <p className="text-xs text-[var(--color-text-muted)]">
+              {t.appSubtitle}
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)] tracking-tight">
-            {t.appTitle}
-          </h1>
-          <p className="text-xs text-[var(--color-text-muted)]">
-            {t.appSubtitle}
-          </p>
-        </div>
-      </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
         {/* Mode Toggle Group - Primary Actions */}
         {onModeChange && (
-          <div className="flex items-center bg-[var(--color-bg-tertiary)]/40 rounded-lg p-1 border border-[var(--color-border)]/60">
+            <div className="flex items-center rounded-2xl border border-white/8 bg-white/[0.035] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <button
               onClick={() => onModeChange('single')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex min-h-10 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${
                 mode === 'single'
-                  ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
+                  ? 'bg-[linear-gradient(135deg,var(--color-accent),var(--color-accent-hover))] text-white shadow-[0_12px_24px_rgba(99,102,241,0.28)]'
+                  : 'text-[var(--color-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-text-primary)]'
               }`}
               title={t.singleMode}
             >
@@ -107,10 +114,10 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
             </button>
             <button
               onClick={() => onModeChange('batch')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex min-h-10 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${
                 mode === 'batch'
-                  ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)]'
+                  ? 'bg-[linear-gradient(135deg,var(--color-accent),var(--color-accent-hover))] text-white shadow-[0_12px_24px_rgba(99,102,241,0.28)]'
+                  : 'text-[var(--color-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-text-primary)]'
               }`}
               title={t.batchMode}
             >
@@ -123,7 +130,7 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
         {onOpenHelp && (
           <button
             onClick={onOpenHelp}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)]/60 bg-[var(--color-bg-secondary)]/60 px-2.5 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            className="flex min-h-10 items-center justify-center gap-1.5 rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-white/[0.06]"
             title={t.help}
             aria-label={t.help}
           >
@@ -133,12 +140,12 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
         )}
 
         {/* Settings Group - Preferences */}
-        <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)]/60 rounded-lg px-1 py-0.5 border border-[var(--color-border)]/40">
+          <div className="flex items-center gap-1 rounded-2xl border border-white/8 bg-white/[0.035] px-1 py-1">
           <a
             href={githubReadmeUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            className="flex h-10 items-center gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-white/[0.06]"
             title="GitHub"
             aria-label="GitHub"
           >
@@ -148,7 +155,7 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
           <div className="relative" ref={styleMenuRef}>
           <button
             onClick={() => setIsStyleMenuOpen(!isStyleMenuOpen)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            className="flex h-10 items-center gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-white/[0.06]"
             title={t.themeStyle}
           >
             <Palette size={18} className="text-[var(--color-text-muted)]" />
@@ -165,12 +172,12 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
 
           {/* Style Dropdown Menu */}
           {isStyleMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 py-1 w-40 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg shadow-lg z-50">
+            <div className="absolute right-0 top-full z-[70] mt-2 w-44 rounded-2xl border border-white/10 bg-[rgba(11,14,20,0.96)] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.42)] backdrop-blur-xl">
               {THEME_STYLES.map((styleKey) => (
                 <button
                   key={styleKey}
                   onClick={() => handleStyleChange(styleKey)}
-                  className={`w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-bg-tertiary)] transition-colors ${
+                  className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-white/[0.06] ${
                     style === styleKey
                       ? 'text-[var(--color-accent)] font-medium'
                       : 'text-[var(--color-text-secondary)]'
@@ -190,7 +197,7 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
         <div className="relative" ref={langMenuRef}>
           <button
             onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            className="flex h-10 items-center gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-white/[0.06]"
             title={t.language}
           >
             <Globe size={18} className="text-[var(--color-text-muted)]" />
@@ -207,12 +214,12 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
 
           {/* Language Dropdown Menu */}
           {isLangMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 py-1 w-40 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg shadow-lg z-50">
+            <div className="absolute right-0 top-full z-[70] mt-2 w-44 rounded-2xl border border-white/10 bg-[rgba(11,14,20,0.96)] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.42)] backdrop-blur-xl">
               {availableLanguages.map((lang) => (
                 <button
                   key={lang}
                   onClick={() => handleLanguageChange(lang)}
-                  className={`w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-bg-tertiary)] transition-colors ${
+                  className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-white/[0.06] ${
                     language === lang
                       ? 'text-[var(--color-accent)] font-medium'
                       : 'text-[var(--color-text-secondary)]'
@@ -228,6 +235,7 @@ export function Header({ mode = 'single', onModeChange, onOpenHelp }: HeaderProp
           )}
         </div>
         </div>{/* End Settings Group */}
+      </div>
       </div>
     </header>
   );
